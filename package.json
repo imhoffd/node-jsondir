@@ -1,0 +1,27 @@
+{
+    "name" : "jsondir",
+    "version" : "0.1.0",
+    "description" : "Convert JSON to directories and back again.",
+    "main" : "./index.js",
+    "dependencies" : {
+        "async" : ">=0.2.9"
+    },
+    "repository" : {
+        "type" : "git",
+        "url" : "https://github.com/dwieeb/node-jsondir.git"
+    },
+    "keywords" : [
+        "mkdir",
+        "json",
+        "directory",
+        "recursive",
+        "tree"
+    ],
+    "author" : {
+        "name" : "Daniel Imhoff",
+        "email" : "dwieeb@gmail.com",
+        "url" : "http://danielimhoff.com"
+    },
+    "license" : "MIT/X11",
+    "engine" : ["node >=0.2.0"]
+}
