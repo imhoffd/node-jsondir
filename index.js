@@ -18,12 +18,11 @@ var UMASK = 18; // 0022 in Octal
 /**
  * A File represents any regular, directory, or symlink file.
  *
- * @param {string} path
+ * @param {object} options
  */
-var File = function(path, options) {
+var File = function(options) {
   options = options || {};
-  this.path = PATH.normalize(path);
-  this.followSymlink = 'followSymlink' in options ? options.followSymlink : false;
+  this.path = PATH.normalize(options.path);
   this.exists = FS.existsSync(this.path);
 
   if (this.exists) {
@@ -32,29 +31,27 @@ var File = function(path, options) {
     this.mode = this.stats.mode & 511; // 511 == 0777
   }
   else {
-    if (!('type' in options)) {
-      throw new Error('"type" is a required option for new nonexistent files.');
+    if (options.type in File.Types) {
+      this.type = File.Types[options.type];
     }
-
-    if (!(options.type in File.Types)) {
+    else {
       throw new Error('Unknown file type: ' + options.type + '.');
     }
 
-    this.type = File.Types[options.type];
-
-    if ('content' in options) {
-      if (this.type !== File.Types.file) {
-        throw new Error('Non-regular files cannot have content.');
-      }
-
-      this.content = options.content;
+    if (this.type === File.Types.file) {
+      this.content = 'content' in options ? options.content : '';
     }
 
     this.mode = File.interpretMode(options.mode, this.type);
   }
 
   if (this.type === File.Types.symlink) {
-    this.linkedFile = new File(this.path, UTIL._extend(options, { followSymlink: true }));
+    if ('dest' in options) {
+      this.dest = options['dest'];
+    }
+    else {
+      throw new Error('"dest" is a required option for symlink files.');
+    }
   }
 };
 
@@ -67,7 +64,7 @@ File.Types = Object.freeze({
   'd': 1,
   'symbolic link': 2,
   'symlink': 2,
-  's': 2
+  'l': 2
 });
 
 File.interpretMode = function(mode, type) {
@@ -83,40 +80,46 @@ File.interpretMode = function(mode, type) {
 
       break;
     case 'string':
-      // We want 'rwxrwxrwx', not '-rwxrwxrwx'
-      if (mode.length === 10) {
-        mode = mode.substring(1);
-      }
+      switch (mode.length) {
+        case 10:
+          mode = mode.substring(1);
+        case 9:
+          var modeParts = [
+            mode.substring(0, 3),
+            mode.substring(3, 6),
+            mode.substring(6, 9)
+          ];
 
-      if (mode.length === 9) {
-        var modeParts = [
-          mode.substring(0, 3),
-          mode.substring(3, 6),
-          mode.substring(6, 9)         
-        ];
+          var decMode = 0;
 
-        var decMode = 0;
+          for (var power = 0; power <= 2; ++power) {
+            var modePartsChars = modeParts[2 - power].split(''),
+                decModeAddition = 0;
 
-        for (var power = 0; power <= 2; ++power) {
-          var modePartsChars = modeParts[2 - power].split(''),
-              decModeAddition = 0;
+            if (modePartsChars[0] === 'r') {
+              decModeAddition += 4;
+            }
 
-          if (modePartsChars[0] === 'r') {
-            decModeAddition += 4;
+            if (modePartsChars[1] === 'w') {
+              decModeAddition += 2;
+            }
+
+            if (modePartsChars[2] === 'x') {
+              decModeAddition += 1;
+            }
+
+            decMode += decModeAddition * Math.pow(8, power);
           }
 
-          if (modePartsChars[1] === 'w') {
-            decModeAddition += 2;
+          return decMode;
+        case 3:
+          var octal = parseInt(mode, 8);
+
+          if (!isNaN(octal) && octal >= 0 && octal <= 511) {
+            return octal;
           }
 
-          if (modePartsChars[2] === 'x') {
-            decModeAddition += 1;
-          }
-
-          decMode += decModeAddition * Math.pow(8, power);
-        }
-
-        return decMode;
+          break;
       }
 
       break;
@@ -137,7 +140,7 @@ File.prototype.getStats = function() {
       throw new Error('Cannot get stats of nonexistent file.');
     }
 
-    this.stats = this.followSymlink ? FS.statSync(this.path) : FS.lstatSync(this.path);
+    this.stats = FS.lstatSync(this.path);
   }
 
   return this.stats;
@@ -177,11 +180,94 @@ File.prototype.create = function() {
       FS.mkdirSync(this.path, this.mode);
       break;
     case File.Types.symlink:
+      FS.symlinkSync(this.dest, this.path);
       break;
   }
 };
 
-console.log(File.interpretMode('drw-rw-r--'));
+var normalizeJson = function(json) {
+  if (typeof json === 'object') {
+    if (!('-path' in json)) {
+      json['-path'] = '.';
+    }
+
+    for (var i in json) {
+      json[i]['-path'] = json['-path'] + '/' + i;
+      json[i] = normalizeJson(json[i]);
+    }
+  }
+
+  return json;
+};
+
+var normalizeOptions = function(options) {
+  var opts = {
+    'type': '-'
+  };
+
+  if (typeof options === 'object') {
+    if ('-dest' in options) {
+      opts.type = 'l';
+    }
+
+    for (var i in options) {
+      // Attribute
+      if (i.indexOf('-') === 0) {
+        opts[i.substring(1)] = options[i];
+      }
+      // We know we have child nodes
+      else {
+        opts.type = 'd';
+      }
+    }
+
+    // But the above is only a guess...
+    if ('-type' in options) {
+      opts.type = options['-type'];
+    }
+  }
+
+  return opts;
+};
+
+var normalizeChildren = function(options) {
+  var children = {};
+
+  for (var i in options) {
+    if (i.indexOf('-') !== 0) {
+      children[i] = options[i];
+    }
+  }
+
+  return children;
+};
+
+var json2dir = function(json) {
+  _json2dir(normalizeJson(json));
+};
+
+var _json2dir = function(json) {
+  for (var i in json) {
+    if (i.indexOf('-') !== 0) {
+      var f = new File(normalizeOptions(json[i]));
+      f.create();
+      _json2dir(normalizeChildren(json[i]));
+    }
+  }
+};
+
+json2dir({
+  "example.txt": {
+    "-content": "just an example =)",
+    "-mode": "rwx---r-x"
+  },
+  "mydir": {
+    "another.txt": {},
+    "to_example": {
+      "-dest": "../example.txt"
+    }
+  }
+});
 
 // module.exports = {
 
