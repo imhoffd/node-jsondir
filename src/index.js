@@ -7,6 +7,8 @@
 
 'use strict';
 
+var ASYNC = require('async');
+
 var File = require('./File').File;
 
 var knownAttributes = Object.freeze([
@@ -18,24 +20,25 @@ var knownAttributes = Object.freeze([
   '-content'
 ]);
 
-var normalizeOptions = function(options, parentOptions) {
+/**
+ * Split up given object into children and valid attributes that are ready for
+ * the File constructor.
+ *
+ * @param  {object} options
+ * @param  {object} parentAttributes Normalized attributes of the parent.
+ * @return {object}
+ */
+var normalizeOptions = function(options, parentAttributes) {
   var opts = {
     attributes: {},
     children: {}
   };
 
   if (typeof options === 'object') {
-    if (typeof parentOptions === 'object') {
-      opts.attributes.location = parentOptions.location + '.' + opts.attributes.name;
-    }
-    else {
-      opts.attributes.location = 'json';
-    }
-
     for (var i in options) {
       if (i.indexOf('-') === 0) {
         if (knownAttributes.indexOf(i) === -1) {
-          throw new Error('Unknown attribute ' + i + ' in ' + opts.attributes.location);
+          throw new Error('Unknown attribute \'' + i + '\' in object.');
         }
 
         opts.attributes[i.substring(1)] = options[i];
@@ -46,17 +49,16 @@ var normalizeOptions = function(options, parentOptions) {
     }
 
     if (!('path' in opts.attributes)) {
-      if (typeof parentOptions === 'object') {
-        opts.attributes.path = parentOptions.path + File.DIRECTORY_SEPARATOR + opts.attributes.name;
+      if (typeof parentAttributes === 'object') {
+        opts.attributes.path = parentAttributes.path + File.DIRECTORY_SEPARATOR + opts.attributes.name;
       }
-      // If there is no parent, it must be the root level.
       else {
         opts.attributes.path = '.';
       }
     }
 
     if (!('type' in opts.attributes)) {
-      if ('-dest' in options) {
+      if ('dest' in opts.attributes) {
         opts.attributes.type = 'l';
       }
       else if (Object.keys(opts.children).length > 0) {
@@ -71,16 +73,20 @@ var normalizeOptions = function(options, parentOptions) {
   return opts;
 };
 
-var json2dir = function(json, parentOptions) {
+var json2dir = function(json, parentAttributes) {
   if (typeof json === 'object') {
-    var options = normalizeOptions(json, parentOptions);
+    var options = normalizeOptions(json, parentAttributes);
     var f = new File(options.attributes);
-    f.create();
-
-    for (var i in options.children) {
-      options.children[i]['-name'] = i;
-      json2dir(options.children[i], options.attributes);
-    }
+    f.create(function(err) {
+      if (err) throw err;
+      ASYNC.each(Object.keys(options.children), function(name, callback) {
+        options.children[name]['-name'] = name;
+        json2dir(options.children[name], options.attributes);
+        callback(null);
+      }, function(err) {
+        if (err) throw err;
+      });
+    });
   }
 };
 
@@ -98,6 +104,6 @@ json2dir({
   "-path": "somedir"
 });
 
-// module.exports = {
-
-// };
+module.exports = {
+  json2dir: json2dir
+};

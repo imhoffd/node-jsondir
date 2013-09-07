@@ -20,9 +20,10 @@
     "readdir",
     "json",
     "directory",
-    "recursive",
+    "file",
+    "structure",
     "tree",
-    "structure"
+    "recursive"
   ],
   "author": {
     "name": "Daniel Imhoff",

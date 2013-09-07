@@ -6,11 +6,8 @@
 
 'use strict';
 
-// Imports
 var PATH = require('path');
 var FS = require('fs');
-
-// var ASYNC = require('async');
 
 /**
  * A File represents any regular, directory, or symlink file.
@@ -39,7 +36,7 @@ var File = function(options) {
       this.content = 'content' in options ? options.content : '';
     }
 
-    this.mode = File.interpretMode(options.mode, this.type);
+    this.mode = File.interpretMode(options.mode, options.type);
   }
 
   if (this.type === File.Types.symlink) {
@@ -67,6 +64,16 @@ File.Types = Object.freeze({
   'l': 2
 });
 
+/**
+ * Given an interpretable string or number, this function will return the
+ * decimal format representing the permission mode on Unix systems. If mode is
+ * omitted, type is required. In that case, it returns the default permission
+ * mode for that file type.
+ *
+ * @param  {mixed} mode Examples: 'rw-r--r--', 'rwxr-xr-x', 0644, 0755
+ * @param  {string} type Valid strings found in File.Types.
+ * @return {number} Decimal representation of permission mode.
+ */
 File.interpretMode = function(mode, type) {
   switch (typeof mode) {
   case 'undefined':
@@ -137,6 +144,11 @@ File.interpretMode = function(mode, type) {
   return false;
 };
 
+/**
+ * Returns the FS.Stats object associated with this File.
+ *
+ * @return {FS.Stats}
+ */
 File.prototype.getStats = function() {
   if (typeof this.stats === 'undefined') {
     if (!this.exists) {
@@ -149,6 +161,11 @@ File.prototype.getStats = function() {
   return this.stats;
 };
 
+/**
+ * Returns the file type of this File the File.Types enumeration.
+ *
+ * @return {number}
+ */
 File.prototype.getType = function() {
   if (typeof this.type === 'undefined') {
     if (typeof this.stats === 'undefined') {
@@ -169,21 +186,39 @@ File.prototype.getType = function() {
   return this.type;
 };
 
-File.prototype.create = function() {
+/**
+ * Creates this File on the filesystem using given information.
+ *
+ * @param  {Function} callback
+ */
+File.prototype.create = function(callback) {
+  var self = this;
+
   if (this.exists) {
-    return new Error('File already exists.');
+    callback(new Error('File already exists.'));
   }
 
   switch (this.type) {
   case File.Types.file:
-    FS.writeFileSync(this.path, this.content);
-    FS.chmodSync(this.path, this.mode);
+    FS.writeFile(this.path, this.content, function(err) {
+      if (err) callback(err);
+      FS.chmod(self.path, self.mode, function(err) {
+        if (err) callback(err);
+        callback();
+      });
+    });
     break;
   case File.Types.directory:
-    FS.mkdirSync(this.path, this.mode);
+    FS.mkdir(this.path, this.mode, function(err) {
+      if (err) callback(err);
+      callback();
+    });
     break;
   case File.Types.symlink:
-    FS.symlinkSync(this.dest, this.path);
+    FS.symlink(this.dest, this.path, function(err) {
+      if (err) callback(err);
+      callback();
+    });
     break;
   }
 };
