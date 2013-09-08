@@ -4,12 +4,14 @@
   "description": "Convert JSON to directories and back again.",
   "main": "./src/index.js",
   "dependencies": {
-    "async": ">=0.2.9"
+    "async": ">=0.2.9",
+    "uid-number": "0.0.3"
   },
   "devDependencies": {
     "grunt": "~0.4.1",
     "grunt-contrib-jshint": "~0.6.4",
-    "grunt-contrib-nodeunit": "~0.2.0"
+    "grunt-contrib-nodeunit": "~0.2.0",
+    "async": "~0.2.9"
   },
   "repository": {
     "type": "git",

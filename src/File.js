@@ -8,6 +8,7 @@
 
 var PATH = require('path');
 var FS = require('fs');
+var uidNumber = require('uid-number');
 
 /**
  * A File represents any regular, directory, or symlink file.
@@ -23,29 +24,42 @@ var File = function(options) {
     this.stats = this.getStats();
     this.type = this.getType();
     this.mode = this.stats.mode & 511; // 511 == 0777
+    this.uid = this.stats.uid;
+    this.gid = this.stats.gid;
   }
   else {
-    if (options.type in File.Types) {
-      this.type = File.Types[options.type];
+    this.owner = options.owner;
+    this.group = options.group;
+
+    if ('type' in options) {
+      if (options.type in File.Types) {
+        this.type = File.Types[options.type];
+      }
+      else {
+        throw new Error('Unknown file type: ' + options.type + '.');
+      }
     }
     else {
-      throw new Error('Unknown file type: ' + options.type + '.');
+      throw new Error('"type" is required for nonexistent files.');
     }
 
-    if (this.type === File.Types.file) {
+    switch (this.type) {
+    case File.Types.file:
       this.content = 'content' in options ? options.content : '';
+
+      break;
+    case File.Types.symlink:
+      if ('dest' in options) {
+        this.dest = options.dest;
+      }
+      else {
+        throw new Error('"dest" is a required option for symlink files.');
+      }
+
+      break;
     }
 
     this.mode = File.interpretMode(options.mode, options.type);
-  }
-
-  if (this.type === File.Types.symlink) {
-    if ('dest' in options) {
-      this.dest = options.dest;
-    }
-    else {
-      throw new Error('"dest" is a required option for symlink files.');
-    }
   }
 };
 
@@ -192,34 +206,76 @@ File.prototype.getType = function() {
  * @param  {Function} callback
  */
 File.prototype.create = function(callback) {
+  if (this.exists) {
+    callback();
+  }
+  else {
+    var self = this;
+
+    switch (this.type) {
+    case File.Types.file:
+      FS.writeFile(this.path, this.content, function(err) {
+        if (err) callback(err);
+        self.chmod(function(err) {
+          if (err) callback(err);
+          self.chown(function(err) {
+            if (err) callback(err);
+            callback();
+          });
+        });
+      });
+      break;
+    case File.Types.directory:
+      FS.mkdir(this.path, this.mode, function(err) {
+        if (err) callback(err);
+        self.chown(function(err) {
+          if (err) callback(err);
+          callback();
+        });
+      });
+      break;
+    case File.Types.symlink:
+      FS.symlink(this.dest, this.path, function(err) {
+        if (err) callback(err);
+        callback();
+      });
+      break;
+    }
+  }
+};
+
+/**
+ * Changes the permissions mode of this file to stored data.
+ *
+ * @param  {Function} callback
+ */
+File.prototype.chmod = function(callback) {
+  FS.chmod(this.path, this.mode, function(err) {
+    if (err) callback(err);
+    callback();
+  });
+};
+
+/**
+ * Changes the owner and group of this file to stored data using the uidNumber
+ * package.
+ *
+ * @param  {Function} callback
+ */
+File.prototype.chown = function(callback) {
   var self = this;
 
-  if (this.exists) {
-    callback(new Error('File already exists.'));
-  }
-
-  switch (this.type) {
-  case File.Types.file:
-    FS.writeFile(this.path, this.content, function(err) {
+  if ('owner' in self || 'group' in self) {
+    uidNumber(this.owner, this.group, function(err, uid, gid) {
       if (err) callback(err);
-      FS.chmod(self.path, self.mode, function(err) {
+      FS.chown(self.path, uid, gid, function(err) {
         if (err) callback(err);
         callback();
       });
     });
-    break;
-  case File.Types.directory:
-    FS.mkdir(this.path, this.mode, function(err) {
-      if (err) callback(err);
-      callback();
-    });
-    break;
-  case File.Types.symlink:
-    FS.symlink(this.dest, this.path, function(err) {
-      if (err) callback(err);
-      callback();
-    });
-    break;
+  }
+  else {
+    callback();
   }
 };
 
