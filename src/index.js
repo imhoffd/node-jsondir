@@ -8,6 +8,7 @@
 'use strict';
 
 var ASYNC = require('async');
+var FS = require('fs');
 
 var File = require('./File').File;
 
@@ -47,7 +48,7 @@ var normalizeOptions = function(options, parentAttributes) {
     for (var i in options) {
       // If the starting character is a hyphen, the option is an attribute,
       // because having files prepended with a hyphen in Unix is a terrible
-      // idea.
+      // idea: http://www.dwheeler.com/essays/fixing-unix-linux-filenames.html#dashes
       if (i.indexOf('-') === 0) {
         if (knownAttributes.indexOf(i) === -1) {
           throw new Error("Unknown attribute '" + i + "' in object.");
@@ -113,9 +114,27 @@ var normalizeOptions = function(options, parentAttributes) {
  *
  * @param  {object} json
  * @param  {object} options
+ * @param  {Function} callback
  */
-var json2dir = function(json, options) {
+var json2dir = function(json, options, callback) {
   options = options || {};
+
+  // Keeps track of the number of child keys in the object. When count
+  // returns to 0, we know the object has been exhausted.
+  var count = 0;
+
+  /**
+   * The handler for determining when everything is finished.
+   *
+   * @param  {Error} err
+   */
+  var finishCallback = function(err) {
+    if (err) callback(err);
+
+    if (count === 0) {
+      callback();
+    }
+  };
 
   /**
    * Recursive function which recurses through the object and asynchronously
@@ -127,17 +146,24 @@ var json2dir = function(json, options) {
   var _json2dir = function(json, parentAttributes) {
     if (typeof json === 'object') {
       // Validate and normalize the options into children and attributes.
-      var options = normalizeOptions(json, parentAttributes);
+      var options = normalizeOptions(json, parentAttributes),
+          childKeys = Object.keys(options.children);
+
+      // First count the number of children.
+      count += childKeys.length;
 
       // Create the File object given the set of attributes parsed which
       // represents the file in question.
       var f = new File(options.attributes);
 
       f.create(function(err) {
-        if (err) throw err;
+        if (err) finishCallback(err);
+
+        // When IO is finished for this file, we mark it as done.
+        --count;
 
         // For each of the children parsed, call this function in parallel.
-        ASYNC.each(Object.keys(options.children), function(name, callback) {
+        ASYNC.each(childKeys, function(name, callback) {
           // normalizeOptions() needs the key of the child object, which is the name.
           options.children[name]['-name'] = name;
 
@@ -156,7 +182,8 @@ var json2dir = function(json, options) {
           // Async has us call callback() to know when this function is done.
           callback();
         }, function(err) {
-          if (err) throw err;
+          if (err) finishCallback(err);
+          finishCallback();
         });
       });
     }
@@ -165,31 +192,88 @@ var json2dir = function(json, options) {
   _json2dir(json);
 };
 
+/**
+ * Converts a given directory structure to a formatted, structured object.
+ *
+ * @param  {string} path
+ * @param  {object} options
+ * @return {object}
+ */
+var dir2json = function(path, options) {
+  options = options || {};
+
+  var json = {
+    "-path": path
+  };
+
+  var _dir2json = function(path) {
+    FS.readdir(path, function(err, files) {
+      if (err) throw err;
+
+//      ASYNC.each(files, function()
+    });
+  };
+
+  return _dir2json(path);
+};
+
 json2dir({
-  "foo": {},
-  "bar": {
-    "file.txt": {
-      "-content": "some text"
-    },
-    "a": {
-      "b": {
-        "c": {
-          "d": {
-            "e": {
-              "f": {
-                "example.txt": {
-                  "-type": "f"
-                }
-              }
-            }
+  "a": {
+    "a1": {
+      "a11": {
+        "a111": {
+          "a1111": {},
+          "a1112": {},
+          "a1113": {},
+          "a1114": {},
+        },
+        "a112": {},
+        "a113": {
+          "a1131": {},
+          "a1132": {},
+          "a1133": {
+            "a11331": {},
+            "a11332": {}
           }
+        }
+      }
+    },
+    "a2": {
+      "a21": {}
+    }
+  },
+  "b": {},
+  "c": {},
+  "d": {
+    "d1": {},
+    "d2": {
+      "d21": {},
+      "d22": {}
+    }
+  },
+  "e": {},
+  "f": {},
+  "g": {},
+  "h": {},
+  "i": {},
+  "j": {},
+  "k": {
+    "k1": {},
+    "k2": {
+      "k21": {
+        "k22": {},
+        "k23": {
+          "k231": {}
         }
       }
     }
   },
   "-path": "output"
+}, {}, function(err) {
+  if (err) throw err;
 });
 
 module.exports = {
-  json2dir: json2dir
+  json2dir: json2dir,
+  dir2json: dir2json
 };
