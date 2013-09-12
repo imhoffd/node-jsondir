@@ -128,7 +128,7 @@ var json2dir = function(json, options, callback) {
    *
    * @param  {Error} err
    */
-  var finishCallback = function(err) {
+  var done = function(err) {
     if (err) callback(err);
 
     if (count === 0) {
@@ -157,7 +157,7 @@ var json2dir = function(json, options, callback) {
       var f = new File(options.attributes);
 
       f.create(function(err) {
-        if (err) finishCallback(err);
+        if (err) done(err);
 
         // When IO is finished for this file, we mark it as done.
         --count;
@@ -182,8 +182,8 @@ var json2dir = function(json, options, callback) {
           // Async has us call callback() to know when this function is done.
           callback();
         }, function(err) {
-          if (err) finishCallback(err);
-          finishCallback();
+          if (err) done(err);
+          done();
         });
       });
     }
@@ -197,80 +197,58 @@ var json2dir = function(json, options, callback) {
  *
  * @param  {string} path
  * @param  {object} options
- * @return {object}
+ * @param  {Function} callback
  */
-var dir2json = function(path, options) {
+var dir2json = function(path, options, callback) {
   options = options || {};
 
   var json = {
     "-path": path
   };
 
-  var _dir2json = function(path) {
-    FS.readdir(path, function(err, files) {
-      if (err) throw err;
+  var done = function(err) {
+    if (err) callback(err);
 
-//      ASYNC.each(files, function()
-    });
+    if (typeof callback === 'function') {
+      callback(null, json);
+    }
   };
 
-  return _dir2json(path);
+  var _dir2json = function(json) {
+    console.log("new File object from file at " + json['-path']);
+    var f = new File({
+      path: json['-path']
+    });
+
+    if (f.type === File.Types.directory) {
+      FS.readdir(f.path, function(err, files) {
+        if (err) done(err);
+
+        if (files.length === 0) {
+          done();
+        }
+        else {
+          ASYNC.each(files, function(name, callback) {
+            json[name] = {
+              "-path": json['-path'] + File.DIRECTORY_SEPARATOR + name
+            };
+            _dir2json(json[name]);
+            callback();
+          }, function(err) {
+            if (err) done(err);
+            done();
+          });
+        }
+      });
+    }
+  };
+
+  _dir2json(json);
 };
 
-json2dir({
-  "a": {
-    "a1": {
-      "a11": {
-        "a111": {
-          "a1111": {},
-          "a1112": {},
-          "a1113": {},
-          "a1114": {},
-        },
-        "a112": {},
-        "a113": {
-          "a1131": {},
-          "a1132": {},
-          "a1133": {
-            "a11331": {},
-            "a11332": {}
-          }
-        }
-      }
-    },
-    "a2": {
-      "a21": {}
-    }
-  },
-  "b": {},
-  "c": {},
-  "d": {
-    "d1": {},
-    "d2": {
-      "d21": {},
-      "d22": {}
-    }
-  },
-  "e": {},
-  "f": {},
-  "g": {},
-  "h": {},
-  "i": {},
-  "j": {},
-  "k": {
-    "k1": {},
-    "k2": {
-      "k21": {
-        "k22": {},
-        "k23": {
-          "k231": {}
-        }
-      }
-    }
-  },
-  "-path": "output"
-}, {}, function(err) {
+dir2json("output", {}, function(err, results) {
   if (err) throw err;
+  console.log(results);
 });
 
 module.exports = {
