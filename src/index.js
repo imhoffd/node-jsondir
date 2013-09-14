@@ -129,10 +129,10 @@ var json2dir = function(json, options, callback) {
    * @param  {Error} err
    */
   var done = function(err) {
-    if (err) callback(err);
+    if (err) return callback(err);
 
     if (count === 0) {
-      callback();
+      return callback();
     }
   };
 
@@ -157,7 +157,7 @@ var json2dir = function(json, options, callback) {
       var f = new File(options.attributes);
 
       f.create(function(err) {
-        if (err) done(err);
+        if (err) return done(err);
 
         // When IO is finished for this file, we mark it as done.
         --count;
@@ -182,7 +182,7 @@ var json2dir = function(json, options, callback) {
           // Async has us call callback() to know when this function is done.
           callback();
         }, function(err) {
-          if (err) done(err);
+          if (err) return done(err);
           done();
         });
       });
@@ -206,44 +206,38 @@ var dir2json = function(path, options, callback) {
     "-path": path
   };
 
-  var done = function(err) {
-    if (err) callback(err);
+  var _dir2json = function(jsonPart, done) {
+    FS.readdir(jsonPart['-path'], function(err, results) {
+      if (err) return done(err);
 
-    if (typeof callback === 'function') {
-      callback(null, json);
-    }
-  };
+      var pending = results.length;
 
-  var _dir2json = function(json) {
-    console.log("new File object from file at " + json['-path']);
-    var f = new File({
-      path: json['-path']
-    });
+      if (pending === 0) return done(null, json);
 
-    if (f.type === File.Types.directory) {
-      FS.readdir(f.path, function(err, files) {
-        if (err) done(err);
+      results.forEach(function(file) {
+        jsonPart[file] = {
+          "-path": jsonPart['-path'] + File.DIRECTORY_SEPARATOR + file
+        };
 
-        if (files.length === 0) {
-          done();
-        }
-        else {
-          ASYNC.each(files, function(name, callback) {
-            json[name] = {
-              "-path": json['-path'] + File.DIRECTORY_SEPARATOR + name
-            };
-            _dir2json(json[name]);
-            callback();
-          }, function(err) {
-            if (err) done(err);
-            done();
+        var options = normalizeOptions(jsonPart[file]);
+        var f = new File(options.attributes);
+
+        if (f.type === File.Types.directory) {
+          _dir2json(jsonPart[file], function(err) {
+            if (--pending === 0) return done(null, json);
           });
         }
+        else {
+          if (--pending === 0) return done(null, json);
+        }
       });
-    }
+    });
   };
 
-  _dir2json(json);
+  _dir2json(json, function(err, results) {
+    if (err) return callback(err);
+    callback(null, results);
+  });
 };
 
 dir2json("output", {}, function(err, results) {
