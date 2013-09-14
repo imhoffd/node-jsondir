@@ -108,6 +108,56 @@ exports.getType = function(test) {
   test.done();
 };
 
+exports.getPath = function(test) {
+  FS.writeFileSync('test/foo', '');
+
+  var f1 = new File({ path: 'test/foo' });
+  var f2 = new File({ path: 'test/bar', type: '-' });
+
+  test.ok(f1.getPath() === 'test/foo');
+  test.ok(f2.getPath() === 'test/bar');
+
+  FS.unlinkSync('test/foo');
+
+  test.done();
+};
+
+exports.getContent = function(test) {
+  FS.writeFileSync('test/foo', 'testing testing');
+  FS.mkdirSync('test/bar');
+
+  var f1 = new File({ path: 'test/foo' });
+  var f2 = new File({ path: 'test/bar' });
+
+  test.ok(f1.getContent() === 'testing testing');
+  test.throws(function() {
+    f2.getContent();
+  });
+
+  FS.unlinkSync('test/foo');
+  FS.rmdirSync('test/bar');
+
+  test.done();
+};
+
+exports.getDest = function(test) {
+  FS.mkdirSync('test/bar');
+  FS.symlinkSync('bar', 'test/tobar');
+
+  var f1 = new File({ path: 'test/bar' });
+  var f2 = new File({ path: 'test/tobar' });
+
+  test.throws(function() {
+    f1.getDest();
+  });
+  test.ok(f2.getDest() === 'bar');
+
+  FS.rmdirSync('test/bar');
+  FS.unlinkSync('test/tobar');
+
+  test.done();
+};
+
 exports.create = function(test) {
   var f1 = new File({
     type: '-',
@@ -130,7 +180,7 @@ exports.create = function(test) {
 
   test.expect(10);
 
-  ASYNC.parallel([
+  ASYNC.series([
     function(callback) {
       f1.create(function(err) {
         if (err) callback(err);

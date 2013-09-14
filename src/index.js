@@ -110,6 +110,37 @@ var normalizeOptions = function(options, parentAttributes) {
 };
 
 /**
+ * Construct a readable object from a File.
+ *
+ * @param  {File} file
+ * @return {object}
+ */
+var createFileNode = function(file) {
+  var node = {
+    "-path": file.getPath()
+  };
+
+  switch (file.getType()) {
+  case File.Types.file:
+    node['-type'] = '-';
+    node['-content'] = file.getContent();
+
+    break;
+  case File.Types.directory:
+    node['-type'] = 'd';
+
+    break;
+  case File.Types.symlink:
+    node['-type'] = 'l';
+    node['-dest'] = file.getDest();
+
+    break;
+  }
+
+  return node;
+};
+
+/**
  * Converts a formatted, structured object to a directory structure.
  *
  * @param  {object} json
@@ -152,40 +183,45 @@ var json2dir = function(json, options, callback) {
       // First count the number of children.
       count += childKeys.length;
 
-      // Create the File object given the set of attributes parsed which
-      // represents the file in question.
-      var f = new File(options.attributes);
+      try {
+        // Create the File object given the set of attributes parsed which
+        // represents the file in question.
+        var f = new File(options.attributes);
 
-      f.create(function(err) {
-        if (err) return done(err);
+        f.create(function(err) {
+          if (err) throw err;
 
-        // When IO is finished for this file, we mark it as done.
-        --count;
+          // When IO is finished for this file, we mark it as done.
+          --count;
 
-        // For each of the children parsed, call this function in parallel.
-        ASYNC.each(childKeys, function(name, callback) {
-          // normalizeOptions() needs the key of the child object, which is the name.
-          options.children[name]['-name'] = name;
+          // For each of the children parsed, call this function in parallel.
+          ASYNC.each(childKeys, function(name, callback) {
+            // normalizeOptions() needs the key of the child object, which is the name.
+            options.children[name]['-name'] = name;
 
-          // If there are any inherited attributes of the parent, we need to add
-          // them to the child object.
-          if (options.inheritedAttributes.length > 0) {
-            for (var i in options.inheritedAttributes) {
-              options.children[name][options.inheritedAttributes[i]] = { value: options.attributes[options.inheritedAttributes[i].substring(1)], inherit: true };
+            // If there are any inherited attributes of the parent, we need to add
+            // them to the child object.
+            if (options.inheritedAttributes.length > 0) {
+              for (var i in options.inheritedAttributes) {
+                options.children[name][options.inheritedAttributes[i]] = { value: options.attributes[options.inheritedAttributes[i].substring(1)], inherit: true };
+              }
             }
-          }
 
-          // Recurse, given the unnormalized options of the child and normalized
-          // attributes of the parent.
-          _json2dir(options.children[name], options.attributes);
+            // Recurse, given the unnormalized options of the child and normalized
+            // attributes of the parent.
+            _json2dir(options.children[name], options.attributes);
 
-          // Async has us call callback() to know when this function is done.
-          callback();
-        }, function(err) {
-          if (err) return done(err);
-          done();
+            // Async has us call callback() to know when this function is done.
+            callback();
+          }, function(err) {
+            if (err) throw err;
+            done();
+          });
         });
-      });
+      }
+      catch (err) {
+        return done(err);
+      }
     }
   };
 
@@ -202,42 +238,61 @@ var json2dir = function(json, options, callback) {
 var dir2json = function(path, options, callback) {
   options = options || {};
 
-  var json = {
-    "-path": path
-  };
+  var json;
 
+  try {
+    // Construction of new origin object.
+    json = createFileNode(new File({ "path": path }));
+  }
+  catch (err) {
+    return callback(err);
+  }
+
+  /**
+   * Recursive function which recurses through the directory structure and
+   * creates the object.
+   *
+   * @param  {object} jsonPart
+   * @param  {Function} done
+   */
   var _dir2json = function(jsonPart, done) {
     FS.readdir(jsonPart['-path'], function(err, results) {
       if (err) return done(err);
 
+      // Keeps a total of files pending appendation to the object.
       var pending = results.length;
 
+      // If there are no files in this directory, we're done on this path.
       if (pending === 0) return done(null, json);
 
+      // For each of the files/directories in this directory, call this function.
       results.forEach(function(file) {
-        jsonPart[file] = {
-          "-path": jsonPart['-path'] + File.DIRECTORY_SEPARATOR + file
-        };
+        try {
+          var f = new File({ "path": jsonPart['-path'] + File.DIRECTORY_SEPARATOR + file });
 
-        var options = normalizeOptions(jsonPart[file]);
-        var f = new File(options.attributes);
+          // Insert the file as a readable file node into the object.
+          jsonPart[file] = createFileNode(f);
 
-        if (f.type === File.Types.directory) {
-          _dir2json(jsonPart[file], function(err) {
+          // If the file is a directory, we have more work to do.
+          if (f.getType() === File.Types.directory) {
+            // Recurse, creating a new callback for the next level of files.
+            _dir2json(jsonPart[file], function(err) {
+              if (err) throw err;
+              if (--pending === 0) return done(null, json);
+            });
+          }
+          else {
             if (--pending === 0) return done(null, json);
-          });
+          }
         }
-        else {
-          if (--pending === 0) return done(null, json);
+        catch (err) {
+          return done(err);
         }
       });
     });
   };
 
-  _dir2json(json, function(err, results) {
-    if (err) return callback(err);
-    callback(null, results);
-  });
+  _dir2json(json, callback);
 };
 
 dir2json("output", {}, function(err, results) {

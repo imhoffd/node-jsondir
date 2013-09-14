@@ -201,6 +201,49 @@ File.prototype.getType = function() {
 };
 
 /**
+ * Returns the file path.
+ *
+ * @return {string}
+ */
+File.prototype.getPath = function() {
+  return this.path;
+};
+
+/**
+ * Returns the contents of the file.
+ *
+ * @return {string}
+ */
+File.prototype.getContent = function() {
+  if (this.type !== File.Types.file) {
+    throw new Error('Cannot get content of nonnormal file.');
+  }
+
+  if (typeof this.content === 'undefined') {
+    this.content = FS.readFileSync(this.path, { encoding: 'utf8' });
+  }
+
+  return this.content;
+};
+
+/**
+ * Returns the destination of the file.
+ *
+ * @return {string}
+ */
+File.prototype.getDest = function() {
+  if (this.type !== File.Types.symlink) {
+    throw new Error('Cannot get destination of nonsymlink file.');
+  }
+
+  if (typeof this.dest === 'undefined') {
+    this.dest = FS.readlinkSync(this.path);
+  }
+
+  return this.dest;
+};
+
+/**
  * Creates this File on the filesystem using given information.
  *
  * @param  {Function} callback
