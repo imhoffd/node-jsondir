@@ -17,6 +17,7 @@ var knownAttributes = Object.freeze([
   '-type',
   '-path',
   '-mode',
+  '-umask',
   '-owner',
   '-group',
   '-dest',
@@ -25,6 +26,7 @@ var knownAttributes = Object.freeze([
 
 var inheritableAttributes = Object.freeze([
   '-mode',
+  '-umask',
   '-owner',
   '-group'
 ]);
@@ -113,9 +115,12 @@ var normalizeOptions = function(options, parentAttributes) {
  * Construct a readable object from a File.
  *
  * @param  {File} file
+ * @param  {object} options
  * @return {object}
  */
-var createFileNode = function(file) {
+var createFileNode = function(file, options) {
+  options = options || {};
+
   var node = {
     "-path": file.getPath()
   };
@@ -123,7 +128,10 @@ var createFileNode = function(file) {
   switch (file.getType()) {
   case File.Types.file:
     node['-type'] = '-';
-    node['-content'] = file.getContent();
+
+    if (!('content' in options) || options.content) {
+      node['-content'] = file.getContent();
+    }
 
     break;
   case File.Types.directory:
@@ -177,8 +185,8 @@ var json2dir = function(json, options, callback) {
   var _json2dir = function(json, parentAttributes) {
     if (typeof json === 'object') {
       // Validate and normalize the options into children and attributes.
-      var options = normalizeOptions(json, parentAttributes),
-          childKeys = Object.keys(options.children);
+      var normalizedOptions = normalizeOptions(json, parentAttributes),
+          childKeys = Object.keys(normalizedOptions.children);
 
       // First count the number of children.
       count += childKeys.length;
@@ -186,10 +194,10 @@ var json2dir = function(json, options, callback) {
       try {
         // Create the File object given the set of attributes parsed which
         // represents the file in question.
-        var f = new File(options.attributes);
+        var f = new File(normalizedOptions.attributes);
 
         f.create(function(err) {
-          if (err) throw err;
+          if (err && (!(err instanceof File.FileExistsException) || !('ignoreExists' in options) || !options.ignoreExists)) throw err;
 
           // When IO is finished for this file, we mark it as done.
           --count;
@@ -197,19 +205,22 @@ var json2dir = function(json, options, callback) {
           // For each of the children parsed, call this function in parallel.
           ASYNC.each(childKeys, function(name, callback) {
             // normalizeOptions() needs the key of the child object, which is the name.
-            options.children[name]['-name'] = name;
+            normalizedOptions.children[name]['-name'] = name;
 
             // If there are any inherited attributes of the parent, we need to add
             // them to the child object.
-            if (options.inheritedAttributes.length > 0) {
-              for (var i in options.inheritedAttributes) {
-                options.children[name][options.inheritedAttributes[i]] = { value: options.attributes[options.inheritedAttributes[i].substring(1)], inherit: true };
+            if (normalizedOptions.inheritedAttributes.length > 0) {
+              for (var i in normalizedOptions.inheritedAttributes) {
+                normalizedOptions.children[name][normalizedOptions.inheritedAttributes[i]] = {
+                  value: normalizedOptions.attributes[normalizedOptions.inheritedAttributes[i].substring(1)],
+                  inherit: true
+                };
               }
             }
 
             // Recurse, given the unnormalized options of the child and normalized
             // attributes of the parent.
-            _json2dir(options.children[name], options.attributes);
+            _json2dir(normalizedOptions.children[name], normalizedOptions.attributes);
 
             // Async has us call callback() to know when this function is done.
             callback();
@@ -271,7 +282,7 @@ var dir2json = function(path, options, callback) {
           var f = new File({ "path": jsonPart['-path'] + File.DIRECTORY_SEPARATOR + file });
 
           // Insert the file as a readable file node into the object.
-          jsonPart[file] = createFileNode(f);
+          jsonPart[file] = createFileNode(f, options);
 
           // If the file is a directory, we have more work to do.
           if (f.getType() === File.Types.directory) {
@@ -295,10 +306,23 @@ var dir2json = function(path, options, callback) {
   _dir2json(json, callback);
 };
 
-dir2json("output", {}, function(err, results) {
+json2dir({
+  "-path": "output",
+  "-mode": { value: 511, inherit: true },
+  "test": {
+    "a": {},
+    "b": { "-type": "d" },
+    "c": {}
+  }
+}, { overwrite: true }, function(err) {
   if (err) throw err;
-  console.log(results);
+  console.log(":D");
 });
+
+// dir2json("output", { content: false }, function(err, results) {
+//   if (err) throw err;
+//   console.log(results);
+// });
 
 module.exports = {
   json2dir: json2dir,

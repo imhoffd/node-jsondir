@@ -27,6 +27,11 @@ exports.interpretMode = function(test) {
   test.ok(493 === File.interpretMode(undefined, 'd')); // 493 == 0755
   test.ok(511 === File.interpretMode(undefined, 'l')); // 511 == 0777
 
+  // If mode is not specified, and a given umask is, return default file and directory permissions.
+  test.ok(436 === File.interpretMode(undefined, '-', 02)); // 436 == 0664
+  test.ok(509 === File.interpretMode(undefined, 'd', 02)); // 509 == 0775
+  test.ok(511 === File.interpretMode(undefined, 'l', 02)); // 511 == 0777
+
   // Permission spectrum
   test.ok(511 === File.interpretMode('rwxrwxrwx')); // 511 == 0777
   test.ok(438 === File.interpretMode('rw-rw-rw-')); // 438 == 0666

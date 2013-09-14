@@ -10,6 +10,13 @@ var PATH = require('path');
 var FS = require('fs');
 var uidNumber = require('uid-number');
 
+var Exception = function(message) {
+  this.message = message;
+  this.name = 'Exception';
+};
+
+Exception.prototype = Object.create(Error.prototype);
+
 /**
  * A File represents any regular, directory, or symlink file.
  *
@@ -19,6 +26,7 @@ var File = function(options) {
   options = options || {};
   this.path = PATH.normalize(options.path);
   this.exists = FS.existsSync(this.path);
+  this.umask = 'umask' in options ? options.umask : File.UMASK;
 
   if (this.exists) {
     this.stats = this.getStats();
@@ -36,11 +44,11 @@ var File = function(options) {
         this.type = File.Types[options.type];
       }
       else {
-        throw new Error('Unknown file type: ' + options.type + '.');
+        throw new File.UnknownFileTypeException('Unknown file type: ' + options.type + '.');
       }
     }
     else {
-      throw new Error('"type" is required for nonexistent files.');
+      throw new File.MissingRequiredParameterException('"type" is required for nonexistent files.');
     }
 
     switch (this.type) {
@@ -53,15 +61,45 @@ var File = function(options) {
         this.dest = options.dest;
       }
       else {
-        throw new Error('"dest" is a required option for symlink files.');
+        throw new File.MissingRequiredParameterException('"dest" is a required option for symlink files.');
       }
 
       break;
     }
 
-    this.mode = File.interpretMode(options.mode, options.type);
+    this.mode = File.interpretMode(options.mode, options.type, this.umask);
   }
 };
+
+File.UnknownFileTypeException = function(message) {
+  Exception.call(this, message || 'Unknown file type.');
+};
+
+File.UnknownFileTypeException.prototype = Object.create(Exception.prototype);
+
+File.FileExistsException = function(message) {
+  Exception.call(this, message || 'File already exists.');
+};
+
+File.FileExistsException.prototype = Object.create(Exception.prototype);
+
+File.FileMissingException = function(message) {
+  Exception.call(this, message || 'File does not exist.');
+};
+
+File.FileMissingException.prototype = Object.create(Exception.prototype);
+
+File.MissingRequiredParameterException = function(message) {
+  Exception.call(this, message || 'Missing required parameter.');
+};
+
+File.MissingRequiredParameterException.prototype = Object.create(Exception.prototype);
+
+File.IncorrectFileTypeException = function(message) {
+  Exception.call(this, message || 'Incorrect file type.');
+};
+
+File.IncorrectFileTypeException.prototype = Object.create(Exception.prototype);
 
 File.UMASK = 18; // 18 == 0022
 File.DIRECTORY_SEPARATOR = PATH.normalize('/');
@@ -82,23 +120,28 @@ File.Types = Object.freeze({
  * Given an interpretable string or number, this function will return the
  * decimal format representing the permission mode on Unix systems. If mode is
  * omitted, type is required. In that case, it returns the default permission
- * mode for that file type.
+ * mode for that file type with a given umask (or 022 if not specified).
  *
  * @param  {mixed} mode Examples: 'rw-r--r--', 'rwxr-xr-x', 0644, 0755
  * @param  {string} type Valid strings found in File.Types.
+ * @param  {number} umask
  * @return {number} Decimal representation of permission mode.
  */
-File.interpretMode = function(mode, type) {
+File.interpretMode = function(mode, type, umask) {
   switch (typeof mode) {
   case 'undefined':
     if (typeof type !== 'undefined' && type in File.Types) {
       type = File.Types[type];
 
+      if (typeof umask === 'undefined') {
+        umask = File.UMASK;
+      }
+
       if (type === File.Types.symlink) {
         return 511; // 511 == 0777
       }
 
-      return (type === File.Types.directory ? 511 : 438) - File.UMASK; // 511 == 0777, 438 == 0666
+      return (type === File.Types.directory ? 511 : 438) - umask; // 511 == 0777, 438 == 0666
     }
 
     break;
@@ -166,7 +209,7 @@ File.interpretMode = function(mode, type) {
 File.prototype.getStats = function() {
   if (typeof this.stats === 'undefined') {
     if (!this.exists) {
-      throw new Error('Cannot get stats of nonexistent file.');
+      throw new File.FileMissingException('Cannot get stats of nonexistent file.');
     }
 
     this.stats = FS.lstatSync(this.path);
@@ -216,7 +259,7 @@ File.prototype.getPath = function() {
  */
 File.prototype.getContent = function() {
   if (this.type !== File.Types.file) {
-    throw new Error('Cannot get content of nonnormal file.');
+    throw new File.IncorrectFileTypeException('Cannot get content of nonnormal file.');
   }
 
   if (typeof this.content === 'undefined') {
@@ -233,7 +276,7 @@ File.prototype.getContent = function() {
  */
 File.prototype.getDest = function() {
   if (this.type !== File.Types.symlink) {
-    throw new Error('Cannot get destination of nonsymlink file.');
+    throw new File.IncorrectFileTypeException('Cannot get destination of nonsymlink file.');
   }
 
   if (typeof this.dest === 'undefined') {
@@ -250,40 +293,42 @@ File.prototype.getDest = function() {
  */
 File.prototype.create = function(callback) {
   if (this.exists) {
-    callback();
+    return callback(new File.FileExistsException("File already exists."));
   }
-  else {
-    var self = this;
 
-    switch (this.type) {
-    case File.Types.file:
-      FS.writeFile(this.path, this.content, function(err) {
-        if (err) callback(err);
-        self.chmod(function(err) {
-          if (err) callback(err);
-          self.chown(function(err) {
-            if (err) callback(err);
-            callback();
-          });
-        });
-      });
-      break;
-    case File.Types.directory:
-      FS.mkdir(this.path, this.mode, function(err) {
+  var self = this;
+
+  switch (this.type) {
+  case File.Types.file:
+    FS.writeFile(this.path, this.content, function(err) {
+      if (err) callback(err);
+      self.chmod(function(err) {
         if (err) callback(err);
         self.chown(function(err) {
           if (err) callback(err);
           callback();
         });
       });
-      break;
-    case File.Types.symlink:
-      FS.symlink(this.dest, this.path, function(err) {
+    });
+    break;
+  case File.Types.directory:
+    FS.mkdir(this.path, function(err) {
+      if (err) callback(err);
+      self.chmod(function(err) {
         if (err) callback(err);
-        callback();
+        self.chown(function(err) {
+          if (err) callback(err);
+          callback();
+        });
       });
-      break;
-    }
+    });
+    break;
+  case File.Types.symlink:
+    FS.symlink(this.dest, this.path, function(err) {
+      if (err) callback(err);
+      callback();
+    });
+    break;
   }
 };
 
