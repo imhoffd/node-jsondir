@@ -156,11 +156,14 @@ var createFileNode = function(file, options) {
  * @param  {Function} callback
  */
 var json2dir = function(json, options, callback) {
-  options = options || {};
+  if (typeof options === 'function') {
+    callback = options;
+    options = {};
+  }
 
   // Keeps track of the number of child keys in the object. When count
   // returns to 0, we know the object has been exhausted.
-  var count = 0;
+  var count = 1;
 
   /**
    * The handler for determining when everything is finished.
@@ -195,7 +198,6 @@ var json2dir = function(json, options, callback) {
         // Create the File object given the set of attributes parsed which
         // represents the file in question.
         var f = new File(normalizedOptions.attributes);
-
         f.create(function(err) {
           if (err && (!(err instanceof File.FileExistsException) || !('ignoreExists' in options) || !options.ignoreExists)) throw err;
 
@@ -247,7 +249,10 @@ var json2dir = function(json, options, callback) {
  * @param  {Function} callback
  */
 var dir2json = function(path, options, callback) {
-  options = options || {};
+  if (typeof options === 'function') {
+    callback = options;
+    options = {};
+  }
 
   var json;
 
@@ -306,18 +311,12 @@ var dir2json = function(path, options, callback) {
   _dir2json(json, callback);
 };
 
-json2dir({
-  "-path": "output",
-  "-mode": { value: 511, inherit: true },
-  "test": {
-    "a": {},
-    "b": { "-type": "d" },
-    "c": {}
-  }
-}, { overwrite: true }, function(err) {
-  if (err) throw err;
-  console.log(":D");
-});
+// json2dir({
+//   "-path": "test/output",
+// }, function(err) {
+//   if (err) throw err;
+//   console.log(":D");
+// });
 
 // dir2json("output", { content: false }, function(err, results) {
 //   if (err) throw err;

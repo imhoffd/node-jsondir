@@ -5,7 +5,8 @@
   "main": "./src/index.js",
   "dependencies": {
     "async": ">=0.2.9",
-    "uid-number": "0.0.3"
+    "uid-number": "0.0.3",
+    "mkdirp": "~0.3.5"
   },
   "devDependencies": {
     "grunt": "~0.4.1",

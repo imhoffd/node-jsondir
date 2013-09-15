@@ -8,6 +8,8 @@ var ASYNC = require('async');
 //var uidNumber = require('uid-number');
 
 exports.interpretMode = function(test) {
+  var umask = process.umask();
+
   // interpretMode() requires type if mode is not specified.
   test.ok(false === File.interpretMode());
   test.ok(false === File.interpretMode(undefined));
@@ -23,9 +25,9 @@ exports.interpretMode = function(test) {
   test.ok(false === File.interpretMode(Number.MAX_VALUE)); // lol
 
   // If mode is not specified, default permissions for a given file type is returned.
-  test.ok(420 === File.interpretMode(undefined, '-')); // 420 == 0644
-  test.ok(493 === File.interpretMode(undefined, 'd')); // 493 == 0755
-  test.ok(511 === File.interpretMode(undefined, 'l')); // 511 == 0777
+  test.ok(438 - umask === File.interpretMode(undefined, '-')); // 438 == 0666
+  test.ok(511 - umask === File.interpretMode(undefined, 'd')); // 511 == 0777
+  test.ok(511 === File.interpretMode(undefined, 'l'));
 
   // If mode is not specified, and a given umask is, return default file and directory permissions.
   test.ok(436 === File.interpretMode(undefined, '-', 02)); // 436 == 0664
@@ -137,7 +139,7 @@ exports.getContent = function(test) {
   test.ok(f1.getContent() === 'testing testing');
   test.throws(function() {
     f2.getContent();
-  });
+  }, File.IncorrectFileTypeException);
 
   FS.unlinkSync('test/foo');
   FS.rmdirSync('test/bar');
@@ -154,7 +156,7 @@ exports.getDest = function(test) {
 
   test.throws(function() {
     f1.getDest();
-  });
+  }, File.IncorrectFileTypeException);
   test.ok(f2.getDest() === 'bar');
 
   FS.rmdirSync('test/bar');
@@ -188,7 +190,7 @@ exports.create = function(test) {
   ASYNC.series([
     function(callback) {
       f1.create(function(err) {
-        if (err) callback(err);
+        if (err) return callback(err);
         var stats = FS.statSync('test/foo');
         test.ok(FS.existsSync('test/foo'));
         test.ok(stats.isFile());
@@ -196,7 +198,7 @@ exports.create = function(test) {
       });
     }, function(callback) {
       f2.create(function(err) {
-        if (err) callback(err);
+        if (err) return callback(err);
         var stats = FS.statSync('test/bar');
         test.ok(FS.existsSync('test/bar'));
         test.ok(stats.isDirectory());
@@ -204,7 +206,7 @@ exports.create = function(test) {
       });
     }, function(callback) {
       f3.create(function(err) {
-        if (err) callback(err);
+        if (err) return callback(err);
         var stats = FS.statSync('test/bar/foo');
         test.ok(FS.existsSync('test/bar/foo'));
         test.ok(stats.isFile());
@@ -213,7 +215,7 @@ exports.create = function(test) {
       });
     }, function(callback) {
       f4.create(function(err) {
-        if (err) callback(err);
+        if (err) return callback(err);
         var lstats = FS.lstatSync('test/bar/tofoo');
         var stats = FS.statSync('test/bar/tofoo');
         test.ok(FS.existsSync('test/bar/tofoo'));

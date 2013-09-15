@@ -8,6 +8,7 @@
 
 var PATH = require('path');
 var FS = require('fs');
+var mkdirp = require('mkdirp');
 var uidNumber = require('uid-number');
 
 var Exception = function(message) {
@@ -101,7 +102,7 @@ File.IncorrectFileTypeException = function(message) {
 
 File.IncorrectFileTypeException.prototype = Object.create(Exception.prototype);
 
-File.UMASK = 18; // 18 == 0022
+File.UMASK = process.umask();
 File.DIRECTORY_SEPARATOR = PATH.normalize('/');
 
 File.Types = Object.freeze({
@@ -298,37 +299,54 @@ File.prototype.create = function(callback) {
 
   var self = this;
 
-  switch (this.type) {
-  case File.Types.file:
-    FS.writeFile(this.path, this.content, function(err) {
-      if (err) callback(err);
-      self.chmod(function(err) {
-        if (err) callback(err);
-        self.chown(function(err) {
-          if (err) callback(err);
-          callback();
+  var op = function() {
+    switch (self.type) {
+    case File.Types.file:
+      FS.writeFile(self.path, self.content, function(err) {
+        if (err) return callback(err);
+        self.chmod(function(err) {
+          if (err) return callback(err);
+          self.chown(function(err) {
+            if (err) return callback(err);
+            callback();
+          });
         });
       });
-    });
-    break;
-  case File.Types.directory:
-    FS.mkdir(this.path, function(err) {
-      if (err) callback(err);
-      self.chmod(function(err) {
-        if (err) callback(err);
-        self.chown(function(err) {
-          if (err) callback(err);
-          callback();
+
+      break;
+    case File.Types.directory:
+      FS.mkdir(self.path, function(err) {
+        if (err) return callback(err);
+        self.chmod(function(err) {
+          if (err) return callback(err);
+          self.chown(function(err) {
+            if (err) return callback(err);
+            callback();
+          });
         });
       });
+
+      break;
+    case File.Types.symlink:
+      FS.symlink(self.dest, self.path, function(err) {
+        if (err) return callback(err);
+        callback();
+      });
+
+      break;
+    }
+  };
+
+  var pos = this.path.lastIndexOf(File.DIRECTORY_SEPARATOR);
+
+  if (pos !== -1) {
+    mkdirp(this.path.substring(0, pos), function(err) {
+      if (err) return callback(err);
+      op();
     });
-    break;
-  case File.Types.symlink:
-    FS.symlink(this.dest, this.path, function(err) {
-      if (err) callback(err);
-      callback();
-    });
-    break;
+  }
+  else {
+    op();
   }
 };
 
