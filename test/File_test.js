@@ -191,36 +191,31 @@ exports.create = function(test) {
     function(callback) {
       f1.create(function(err) {
         if (err) return callback(err);
-        var stats = FS.statSync('test/foo');
         test.ok(FS.existsSync('test/foo'));
-        test.ok(stats.isFile());
+        test.ok(FS.statSync('test/foo').isFile());
         callback();
       });
     }, function(callback) {
       f2.create(function(err) {
         if (err) return callback(err);
-        var stats = FS.statSync('test/bar');
         test.ok(FS.existsSync('test/bar'));
-        test.ok(stats.isDirectory());
+        test.ok(FS.statSync('test/bar').isDirectory());
         callback();
       });
     }, function(callback) {
       f3.create(function(err) {
         if (err) return callback(err);
-        var stats = FS.statSync('test/bar/foo');
         test.ok(FS.existsSync('test/bar/foo'));
-        test.ok(stats.isFile());
+        test.ok(FS.statSync('test/bar/foo').isFile());
         test.ok('test' === FS.readFileSync('test/bar/foo', { encoding: 'utf8' }));
         callback();
       });
     }, function(callback) {
       f4.create(function(err) {
         if (err) return callback(err);
-        var lstats = FS.lstatSync('test/bar/tofoo');
-        var stats = FS.statSync('test/bar/tofoo');
         test.ok(FS.existsSync('test/bar/tofoo'));
-        test.ok(lstats.isSymbolicLink());
-        test.ok(stats.isFile());
+        test.ok(FS.lstatSync('test/bar/tofoo').isSymbolicLink());
+        test.ok(FS.statSync('test/bar/tofoo').isFile());
         callback();
       });
     }

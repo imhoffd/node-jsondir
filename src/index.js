@@ -325,5 +325,6 @@ var dir2json = function(path, options, callback) {
 
 module.exports = {
   json2dir: json2dir,
-  dir2json: dir2json
+  dir2json: dir2json,
+  File: File
 };
