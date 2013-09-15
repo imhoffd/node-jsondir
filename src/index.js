@@ -21,14 +21,16 @@ var knownAttributes = Object.freeze([
   '-owner',
   '-group',
   '-dest',
-  '-content'
+  '-content',
+  '-inherit'
 ]);
 
 var inheritableAttributes = Object.freeze([
-  '-mode',
-  '-umask',
-  '-owner',
-  '-group'
+  'inherit',
+  'mode',
+  'umask',
+  'owner',
+  'group'
 ]);
 
 /**
@@ -42,7 +44,6 @@ var inheritableAttributes = Object.freeze([
 var normalizeOptions = function(options, parentAttributes) {
   var opts = {
     attributes: {},
-    inheritedAttributes: [],
     children: {}
   };
 
@@ -56,26 +57,7 @@ var normalizeOptions = function(options, parentAttributes) {
           throw new Error("Unknown attribute '" + i + "' in object.");
         }
 
-        // Attributes can have objects as values, for attributes of the attributes,
-        // such as inherit. In that case, the value attribute is taken as the value.
-        if (typeof options[i] === 'object') {
-          if (!('value' in options[i])) {
-            throw new Error("Attribute object '" + i + "' needs 'value'.");
-          }
-
-          if ('inherit' in options[i] && options[i].inherit) {
-            if (inheritableAttributes.indexOf(i) === -1) {
-              throw new Error("Unknown inheritable attribute '" + i + "' in object.");
-            }
-
-            opts.inheritedAttributes.push(i);
-          }
-
-          opts.attributes[i.substring(1)] = options[i].value;
-        }
-        else {
-          opts.attributes[i.substring(1)] = options[i];
-        }
+        opts.attributes[i.substring(1)] = options[i];
       }
       else {
         opts.children[i] = options[i];
@@ -84,6 +66,14 @@ var normalizeOptions = function(options, parentAttributes) {
 
     if ('owner' in opts.attributes && opts.attributes.owner !== process.env.USER && opts.attributes.owner !== 'root') {
       throw new Error("Must be run as root if owner differs from you.");
+    }
+
+    if ('inherit' in opts.attributes) {
+      opts.attributes.inherit.forEach(function(inheritedAttribute) {
+        if (inheritableAttributes.indexOf(inheritedAttribute) === -1) {
+          throw new Error("Unknown inheritable attribute '" + inheritedAttribute + "' in object.");
+        }
+      });
     }
 
     if (!('path' in opts.attributes)) {
@@ -211,13 +201,14 @@ var json2dir = function(json, options, callback) {
 
             // If there are any inherited attributes of the parent, we need to add
             // them to the child object.
-            if (normalizedOptions.inheritedAttributes.length > 0) {
-              for (var i in normalizedOptions.inheritedAttributes) {
-                normalizedOptions.children[name][normalizedOptions.inheritedAttributes[i]] = {
-                  value: normalizedOptions.attributes[normalizedOptions.inheritedAttributes[i].substring(1)],
-                  inherit: true
-                };
+            if ('inherit' in normalizedOptions.attributes && normalizedOptions.attributes.inherit.length > 0) {
+              if (normalizedOptions.attributes.inherit.indexOf('inherit') === -1) {
+                normalizedOptions.attributes.inherit.push('inherit');
               }
+
+              normalizedOptions.attributes.inherit.forEach(function(inheritedAttribute) {
+                normalizedOptions.children[name]['-' + inheritedAttribute] = normalizedOptions.attributes[inheritedAttribute];
+              });
             }
 
             // Recurse, given the unnormalized options of the child and normalized
@@ -311,12 +302,20 @@ var dir2json = function(path, options, callback) {
   _dir2json(json, callback);
 };
 
-// json2dir({
-//   "-path": "test/output",
-// }, function(err) {
-//   if (err) throw err;
-//   console.log(":D");
-// });
+json2dir({
+  "-path": "output",
+  "-inherit": ['mode'],
+  "-mode": 511,
+  "a": {
+    "a1": {
+      "a11": {}
+    }
+  },
+  "b": {}
+}, function(err) {
+  if (err) throw err;
+  console.log(":D");
+});
 
 // dir2json("output", { content: false }, function(err, results) {
 //   if (err) throw err;
