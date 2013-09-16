@@ -6,9 +6,10 @@ var jsondir = require('../src/index');
 var FS = require('fs');
 var ASYNC = require('async');
 var File = jsondir.File;
+// var uidNumber = require('uid-number');
 
 exports.json2dir = function(test) {
-  // test.expect(5);
+  test.expect(41);
 
   ASYNC.series([
     function(callback) {
@@ -181,7 +182,70 @@ exports.json2dir = function(test) {
         FS.rmdirSync('test/output');
         callback();
       });
+    },
+    function(callback) {
+      jsondir.json2dir({
+        "-path": 'test/output',
+        "-inherit": 'mode',
+        "-mode": 511,
+        "a": {
+          "a1": {
+            "a11": {}
+          }
+        },
+        "b": {}
+      }, function(err) {
+        if (err) return callback(err);
+        test.ok((FS.statSync('test/output').mode & 0777) === 0777);
+        test.ok((FS.statSync('test/output/a').mode & 0777) === 0777);
+        test.ok((FS.statSync('test/output/b').mode & 0777) === 0777);
+        test.ok((FS.statSync('test/output/a/a1').mode & 0777) === 0777);
+        test.ok((FS.statSync('test/output/a/a1/a11').mode & 0777) === 0777);
+        FS.unlinkSync('test/output/a/a1/a11');
+        FS.rmdirSync('test/output/a/a1');
+        FS.rmdirSync('test/output/a');
+        FS.unlinkSync('test/output/b');
+        FS.rmdirSync('test/output');
+        callback();
+      });
     }
+    // This test doesn't work because owner/group attribute setting requires
+    // super user, and grunt/nodeunit do something weird with that.
+    //
+    // function(callback) {
+    //   jsondir.json2dir({
+    //     "-path": 'test/output',
+    //     "-inherit": ['owner', 'group'],
+    //     "-owner": 'dwieeb',
+    //     "-group": 'staff',
+    //     "a": {
+    //       "a1": {
+    //         "a11": {}
+    //       }
+    //     },
+    //     "b": {}
+    //   }, function(err) {
+    //     if (err) return callback(err);
+    //     uidNumber('dwieeb', 'staff', function(uid, gid) {
+    //       var outputStats = FS.statSync('test/output');
+    //       var faStats = FS.statSync('test/output/a');
+    //       var fbStats = FS.statSync('test/output/b');
+    //       var fa1Stats = FS.statSync('test/output/a/a1');
+    //       var fa11Stats = FS.statSync('test/output/a/a1/a11');
+    //       test.ok(outputStats.uid === uid);
+    //       test.ok(outputStats.gid === gid);
+    //       test.ok(faStats.uid === uid);
+    //       test.ok(faStats.gid === gid);
+    //       test.ok(fbStats.uid === uid);
+    //       test.ok(fbStats.gid === gid);
+    //       test.ok(fa1Stats.uid === uid);
+    //       test.ok(fa1Stats.gid === gid);
+    //       test.ok(fa11Stats.uid === uid);
+    //       test.ok(fa11Stats.gid === gid);
+    //       callback();
+    //     });
+    //   });
+    // }
   ], function(err) {
     if (err) throw err;
     test.done();

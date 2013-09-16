@@ -69,6 +69,10 @@ var normalizeOptions = function(options, parentAttributes) {
     }
 
     if ('inherit' in opts.attributes) {
+      if (typeof opts.attributes.inherit === 'string') {
+        opts.attributes.inherit = [opts.attributes.inherit, 'inherit'];
+      }
+
       opts.attributes.inherit.forEach(function(inheritedAttribute) {
         if (inheritableAttributes.indexOf(inheritedAttribute) === -1) {
           throw new Error("Unknown inheritable attribute '" + inheritedAttribute + "' in object.");
@@ -302,20 +306,20 @@ var dir2json = function(path, options, callback) {
   _dir2json(json, callback);
 };
 
-json2dir({
-  "-path": "output",
-  "-inherit": ['mode'],
-  "-mode": 511,
-  "a": {
-    "a1": {
-      "a11": {}
-    }
-  },
-  "b": {}
-}, function(err) {
-  if (err) throw err;
-  console.log(":D");
-});
+// json2dir({
+//   "-path": "output",
+//   "-inherit": ['mode'],
+//   "-mode": 511,
+//   "a": {
+//     "a1": {
+//       "a11": {}
+//     }
+//   },
+//   "b": {}
+// }, function(err) {
+//   if (err) throw err;
+//   console.log(":D");
+// });
 
 // dir2json("output", { content: false }, function(err, results) {
 //   if (err) throw err;
