@@ -249,15 +249,7 @@ var dir2json = function(path, options, callback) {
     options = {};
   }
 
-  var json;
-
-  try {
-    // Construction of new origin object.
-    json = createFileNode(new File({ "path": path }));
-  }
-  catch (err) {
-    return callback(err);
-  }
+  var file, json;
 
   /**
    * Recursive function which recurses through the directory structure and
@@ -279,7 +271,7 @@ var dir2json = function(path, options, callback) {
       // For each of the files/directories in this directory, call this function.
       results.forEach(function(file) {
         try {
-          var f = new File({ "path": jsonPart['-path'] + File.DIRECTORY_SEPARATOR + file });
+          var f = new File({ "path": jsonPart['-path'] + File.DIRECTORY_SEPARATOR + file, "exists": true });
 
           // Insert the file as a readable file node into the object.
           jsonPart[file] = createFileNode(f, options);
@@ -303,7 +295,21 @@ var dir2json = function(path, options, callback) {
     });
   };
 
-  _dir2json(json, callback);
+  try {
+    // Construction of new origin object.
+    file = new File({ "path": path, "exists": true });
+    json = createFileNode(file);
+  }
+  catch (err) {
+    return callback(err);
+  }
+
+  if (file.getType() === File.Types.directory) {
+    _dir2json(json, callback);
+  }
+  else {
+    callback(null, json);
+  }
 };
 
 // json2dir({
@@ -321,7 +327,7 @@ var dir2json = function(path, options, callback) {
 //   console.log(":D");
 // });
 
-// dir2json("output", { content: false }, function(err, results) {
+// dir2json('test/output', function(err, results) {
 //   if (err) throw err;
 //   console.log(results);
 // });

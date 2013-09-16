@@ -12,7 +12,6 @@ exports.interpretMode = function(test) {
 
   // interpretMode() requires type if mode is not specified.
   test.ok(false === File.interpretMode());
-  test.ok(false === File.interpretMode(undefined));
 
   // interpretMode() requires a string of length 9 (10 is okay, too)
   test.ok(false === File.interpretMode(''));

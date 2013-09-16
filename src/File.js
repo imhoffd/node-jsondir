@@ -40,6 +40,10 @@ var File = function(options) {
     this.owner = options.owner;
     this.group = options.group;
 
+    if ('exists' in options && options.exists) {
+      throw new File.FileMissingException('File was expected to exist, but does not.');
+    }
+
     if ('type' in options) {
       if (options.type in File.Types) {
         this.type = File.Types[options.type];

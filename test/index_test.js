@@ -251,3 +251,125 @@ exports.json2dir = function(test) {
     test.done();
   });
 };
+
+exports.dir2json = function(test) {
+  // test.expect();
+
+  ASYNC.series([
+    function(callback) {
+      jsondir.dir2json('test/output', function(err) {
+        if (err instanceof File.FileMissingException) {
+          test.ok(true);
+          return callback();
+        }
+
+        return callback(err);
+      });
+    },
+    function(callback) {
+      FS.writeFileSync('test/output', '');
+      jsondir.dir2json('test/output', function(err, results) {
+        if (err) return callback(err);
+        test.deepEqual(results, {
+          "-path": 'test/output',
+          "-type": '-',
+          "-content": ''
+        });
+        FS.unlinkSync('test/output');
+        callback();
+      });
+    },
+    function(callback) {
+      FS.mkdirSync('test/output');
+      jsondir.dir2json('test/output', function(err, results) {
+        if (err) return callback(err);
+        test.deepEqual(results, {
+          "-path": 'test/output',
+          "-type": 'd'
+        });
+        FS.rmdirSync('test/output');
+        callback();
+      });
+    },
+    function(callback) {
+      FS.writeFileSync('test/output');
+      FS.symlinkSync('output', 'test/to_output');
+      jsondir.dir2json('test/to_output', function(err, results) {
+        if (err) return callback(err);
+        test.deepEqual(results, {
+          "-path": 'test/to_output',
+          "-type": 'l',
+          "-dest": 'output'
+        });
+        FS.unlinkSync('test/output');
+        FS.unlinkSync('test/to_output');
+        callback();
+      });
+    },
+    function(callback) {
+      FS.mkdirSync('test/output');
+      FS.writeFileSync('test/output/a', 'something something something dark side');
+      FS.writeFileSync('test/output/b', 'something something something complete');
+      jsondir.dir2json('test/output', function(err, results) {
+        if (err) return callback(err);
+        test.deepEqual(results, {
+          "-path": 'test/output',
+          "-type": 'd',
+          "a": {
+            "-path": 'test/output/a',
+            "-type": '-',
+            "-content": 'something something something dark side'
+          },
+          "b": {
+            "-path": 'test/output/b',
+            "-type": '-',
+            "-content": 'something something something complete'
+          }
+        });
+        FS.unlinkSync('test/output/a');
+        FS.unlinkSync('test/output/b');
+        FS.rmdirSync('test/output');
+        callback();
+      });
+    },
+    function(callback) {
+      FS.mkdirSync('test/output');
+      FS.mkdirSync('test/output/a');
+      FS.mkdirSync('test/output/a/a1');
+      FS.writeFileSync('test/output/a/a1/a11', '');
+      FS.writeFileSync('test/output/b', '');
+      jsondir.dir2json('test/output', { content: false }, function(err, results) {
+        if (err) return callback(err);
+        test.deepEqual(results, {
+          "-path": 'test/output',
+          "-type": 'd',
+          "a": {
+            "-path": 'test/output/a',
+            "-type": 'd',
+            "a1": {
+              "-path": 'test/output/a/a1',
+              "-type": 'd',
+              "a11": {
+                "-path": 'test/output/a/a1/a11',
+                "-type": '-'
+              }
+            }
+          },
+          "b": {
+            "-path": 'test/output/b',
+            "-type": '-'
+          }
+        });
+        FS.unlinkSync('test/output/b');
+        FS.unlinkSync('test/output/a/a1/a11');
+        FS.rmdirSync('test/output/a/a1');
+        FS.rmdirSync('test/output/a');
+        FS.rmdirSync('test/output');
+        callback();
+      });
+    }
+  ], function(err) {
+    if (err) throw err;
+    test.done();
+  });
+};
