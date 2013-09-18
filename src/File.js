@@ -156,7 +156,7 @@ File.interpretMode = function(mode, type, umask) {
       mode = mode.substring(1);
       /* falls through */
     case 9:
-      var modeParts = mode.match(/[r-][w-][x-]/g),
+      var modeParts = mode.match(/[r-][w-][xs-]/g),
           decMode = 0;
 
       if (!modeParts || modeParts.length !== 3) {
