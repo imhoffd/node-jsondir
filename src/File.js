@@ -156,13 +156,12 @@ File.interpretMode = function(mode, type, umask) {
       mode = mode.substring(1);
       /* falls through */
     case 9:
-      var modeParts = [
-        mode.substring(0, 3),
-        mode.substring(3, 6),
-        mode.substring(6, 9)
-      ];
+      var modeParts = mode.match(/[r-][w-][x-]/g),
+          decMode = 0;
 
-      var decMode = 0;
+      if (!modeParts || modeParts.length !== 3) {
+        return false;
+      }
 
       for (var power = 0; power <= 2; ++power) {
         var modePartsChars = modeParts[2 - power].split(''),

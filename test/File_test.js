@@ -11,60 +11,60 @@ exports.interpretMode = function(test) {
   var umask = process.umask();
 
   // interpretMode() requires type if mode is not specified.
-  test.ok(false === File.interpretMode());
+  test.strictEqual(File.interpretMode(), false);
 
   // interpretMode() requires a string of length 9 (10 is okay, too)
-  test.ok(false === File.interpretMode(''));
-  test.ok(false === File.interpretMode('short'));
-  test.ok(false === File.interpretMode('muchtoolong')); // actually, not too much
+  test.strictEqual(File.interpretMode(''), false);
+  test.strictEqual(File.interpretMode('short'), false);
+  test.strictEqual(File.interpretMode('muchtoolong'), false); // actually, not too much
 
   // interpretMode() requires a number between 0 and 511, which is 000 and 777 in Octal.
-  test.ok(false === File.interpretMode(-1));
-  test.ok(false === File.interpretMode(777)); // False, because 777 is in decimal
-  test.ok(false === File.interpretMode(Number.MAX_VALUE)); // lol
+  test.strictEqual(File.interpretMode(-1), false);
+  test.strictEqual(File.interpretMode(777), false); // False, because 777 is in decimal
+  test.strictEqual(File.interpretMode(Number.MAX_VALUE), false); // lol
 
   // If mode is not specified, default permissions for a given file type is returned.
-  test.ok(438 - umask === File.interpretMode(undefined, '-')); // 438 == 0666
-  test.ok(511 - umask === File.interpretMode(undefined, 'd')); // 511 == 0777
-  test.ok(511 === File.interpretMode(undefined, 'l'));
+  test.strictEqual(File.interpretMode(undefined, '-'), 438 - umask); // 438 == 0666
+  test.strictEqual(File.interpretMode(undefined, 'd'), 511 - umask); // 511 == 0777
+  test.strictEqual(File.interpretMode(undefined, 'l'), 511);
 
   // If mode is not specified, and a given umask is, return default file and directory permissions.
-  test.ok(436 === File.interpretMode(undefined, '-', 02)); // 436 == 0664
-  test.ok(509 === File.interpretMode(undefined, 'd', 02)); // 509 == 0775
-  test.ok(511 === File.interpretMode(undefined, 'l', 02)); // 511 == 0777
+  test.strictEqual(File.interpretMode(undefined, '-', 02), 436); // 436 == 0664
+  test.strictEqual(File.interpretMode(undefined, 'd', 02), 509); // 509 == 0775
+  test.strictEqual(File.interpretMode(undefined, 'l', 02), 511); // 511 == 0777
 
   // Permission spectrum
-  test.ok(511 === File.interpretMode('rwxrwxrwx')); // 511 == 0777
-  test.ok(438 === File.interpretMode('rw-rw-rw-')); // 438 == 0666
-  test.ok(365 === File.interpretMode('r-xr-xr-x')); // 365 == 0555
-  test.ok(292 === File.interpretMode('r--r--r--')); // 292 == 0444
-  test.ok(219 === File.interpretMode('-wx-wx-wx')); // 219 == 0333
-  test.ok(146 === File.interpretMode('-w--w--w-')); // 146 == 0222
-  test.ok(73  === File.interpretMode('--x--x--x')); //  73 == 0111
-  test.ok(0   === File.interpretMode('---------')); //   0 == 0000
+  test.strictEqual(File.interpretMode('rwxrwxrwx'), 511); // 511 == 0777
+  test.strictEqual(File.interpretMode('rw-rw-rw-'), 438); // 438 == 0666
+  test.strictEqual(File.interpretMode('r-xr-xr-x'), 365); // 365 == 0555
+  test.strictEqual(File.interpretMode('r--r--r--'), 292); // 292 == 0444
+  test.strictEqual(File.interpretMode('-wx-wx-wx'), 219); // 219 == 0333
+  test.strictEqual(File.interpretMode('-w--w--w-'), 146); // 146 == 0222
+  test.strictEqual(File.interpretMode('--x--x--x'), 73);  //  73 == 0111
+  test.strictEqual(File.interpretMode('---------'), 0);   //   0 == 0000
 
   // Common permissions
-  test.ok(509 === File.interpretMode('rwxrwxr-x')); // 509 == 0775
-  test.ok(493 === File.interpretMode('rwxr-xr-x')); // 493 == 0755
-  test.ok(448 === File.interpretMode('rwx------')); // 384 == 0700
-  test.ok(436 === File.interpretMode('rw-rw-r--')); // 436 == 0664
-  test.ok(420 === File.interpretMode('rw-r--r--')); // 420 == 0644
-  test.ok(384 === File.interpretMode('rw-------')); // 384 == 0600
+  test.strictEqual(File.interpretMode('rwxrwxr-x'), 509); // 509 == 0775
+  test.strictEqual(File.interpretMode('rwxr-xr-x'), 493); // 493 == 0755
+  test.strictEqual(File.interpretMode('rwx------'), 448); // 448 == 0700
+  test.strictEqual(File.interpretMode('rw-rw-r--'), 436); // 436 == 0664
+  test.strictEqual(File.interpretMode('rw-r--r--'), 420); // 420 == 0644
+  test.strictEqual(File.interpretMode('rw-------'), 384); // 384 == 0600
 
   // Weird (but valid) permissions
-  test.ok(179 === File.interpretMode('-w-rw--wx')); // 179 == 0263
-  test.ok(335 === File.interpretMode('r-x--xrwx')); // 335 == 0517
+  test.strictEqual(File.interpretMode('-w-rw--wx'), 179); // 179 == 0263
+  test.strictEqual(File.interpretMode('r-x--xrwx'), 335); // 335 == 0517
 
   // You can pass Octal numbers into interpretMode, which does a bit more validation
   // than simply parseInt()
-  test.ok(511 === File.interpretMode(0777));
-  test.ok(438 === File.interpretMode(0666));
-  test.ok(365 === File.interpretMode(0555));
-  test.ok(292 === File.interpretMode(0444));
-  test.ok(219 === File.interpretMode(0333));
-  test.ok(146 === File.interpretMode(0222));
-  test.ok(73  === File.interpretMode(0111));
-  test.ok(0   === File.interpretMode(0));
+  test.strictEqual(File.interpretMode(0777), 511);
+  test.strictEqual(File.interpretMode(0666), 438);
+  test.strictEqual(File.interpretMode(0555), 365);
+  test.strictEqual(File.interpretMode(0444), 292);
+  test.strictEqual(File.interpretMode(0333), 219);
+  test.strictEqual(File.interpretMode(0222), 146);
+  test.strictEqual(File.interpretMode(0111), 73);
+  test.strictEqual(File.interpretMode(0), 0);
 
   // Whew!
   test.done();
@@ -85,8 +85,8 @@ exports.getStats = function(test) {
   test.ok(f2Stats instanceof FS.Stats);
   test.ok(f1Stats.isFile());
   test.ok(f2Stats.isDirectory());
-  test.ok((f1Stats.mode & 0777) === 0644);
-  test.ok((f2Stats.mode & 0777) === 0755);
+  test.strictEqual(f1Stats.mode & 0777, 0644);
+  test.strictEqual(f2Stats.mode & 0777, 0755);
 
   FS.unlinkSync('test/foo');
   FS.rmdirSync('test/bar');
@@ -103,9 +103,9 @@ exports.getType = function(test) {
   var f2 = new File({ path: 'test/bar' });
   var f3 = new File({ path: 'test/tobar' });
 
-  test.ok(f1.getType() === File.Types.file);
-  test.ok(f2.getType() === File.Types.directory);
-  test.ok(f3.getType() === File.Types.symlink);
+  test.strictEqual(f1.getType(), File.Types.file);
+  test.strictEqual(f2.getType(), File.Types.directory);
+  test.strictEqual(f3.getType(), File.Types.symlink);
 
   FS.unlinkSync('test/foo');
   FS.rmdirSync('test/bar');
@@ -120,8 +120,8 @@ exports.getPath = function(test) {
   var f1 = new File({ path: 'test/foo' });
   var f2 = new File({ path: 'test/bar', type: '-' });
 
-  test.ok(f1.getPath() === 'test/foo');
-  test.ok(f2.getPath() === 'test/bar');
+  test.strictEqual(f1.getPath(), 'test/foo');
+  test.strictEqual(f2.getPath(), 'test/bar');
 
   FS.unlinkSync('test/foo');
 
@@ -135,7 +135,7 @@ exports.getContent = function(test) {
   var f1 = new File({ path: 'test/foo' });
   var f2 = new File({ path: 'test/bar' });
 
-  test.ok(f1.getContent() === 'testing testing');
+  test.strictEqual(f1.getContent(), 'testing testing');
   test.throws(function() {
     f2.getContent();
   }, File.IncorrectFileTypeException);
@@ -156,7 +156,7 @@ exports.getDest = function(test) {
   test.throws(function() {
     f1.getDest();
   }, File.IncorrectFileTypeException);
-  test.ok(f2.getDest() === 'bar');
+  test.strictEqual(f2.getDest(), 'bar');
 
   FS.rmdirSync('test/bar');
   FS.unlinkSync('test/tobar');
@@ -206,7 +206,7 @@ exports.create = function(test) {
         if (err) return callback(err);
         test.ok(FS.existsSync('test/bar/foo'));
         test.ok(FS.statSync('test/bar/foo').isFile());
-        test.ok('test' === FS.readFileSync('test/bar/foo', { encoding: 'utf8' }));
+        test.strictEqual(FS.readFileSync('test/bar/foo', { encoding: 'utf8' }), 'test');
         callback();
       });
     }, function(callback) {
