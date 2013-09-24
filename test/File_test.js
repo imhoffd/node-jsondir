@@ -63,7 +63,7 @@ exports.interpretMode = function(test) {
   test.strictEqual(File.interpretMode('rwxrwS---'), 1520); // 1520 == 02760
   test.strictEqual(File.interpretMode('rwsrws---'), 3576); // 3576 == 06770
   test.strictEqual(File.interpretMode('rwSrwS---'), 3504); // 3504 == 06660
-  test.strictEqual(File.interpretMode('rwSrws--t'), 4025);  // 4025 == 07671
+  test.strictEqual(File.interpretMode('rwSrws--t'), 4025); // 4025 == 07671
   test.strictEqual(File.interpretMode('rwsr-xr-t'), 3053); // 3053 == 05755
   test.strictEqual(File.interpretMode('rwsrwxrw-'), 2558); // 2558 == 04776
   test.strictEqual(File.interpretMode('rwsrwSrwt'), 4087); // 4087 == 07767
