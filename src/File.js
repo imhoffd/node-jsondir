@@ -156,7 +156,7 @@ File.interpretMode = function(mode, type, umask) {
       mode = mode.substring(1);
       /* falls through */
     case 9:
-      var modeParts = mode.match(/[r-][w-][xs-]/g),
+      var modeParts = mode.match(/[r-][w-][xstST-]/g),
           decMode = 0;
 
       if (!modeParts || modeParts.length !== 3) {
@@ -175,8 +175,28 @@ File.interpretMode = function(mode, type, umask) {
           decModeAddition += 2;
         }
 
-        if (modePartsChars[2] === 'x') {
-          decModeAddition += 1;
+        if (['x', 's', 't', 'S', 'T'].indexOf(modePartsChars[2]) !== -1) {
+          // uppercase indicates the x bit is not set
+          if (/[a-z]/.test(modePartsChars[2])) {
+            decModeAddition += 1;
+          }
+
+          switch (modePartsChars[2].toLowerCase()) {
+          case 's': // setuid/setgid bit
+            switch (power) {
+            case 2:
+              decMode += 4 * Math.pow(8, 3); // setuid flag in high-order octal digit
+              break;
+            case 1:
+              decMode += 2 * Math.pow(8, 3); // setgid flag in high-order octal digit
+              break;
+            }
+
+            break;
+          case 't': // sticky bit
+            decMode += Math.pow(8, 3); // sticky flag in high-order octal digit
+            break;
+          }
         }
 
         decMode += decModeAddition * Math.pow(8, power);

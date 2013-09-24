@@ -55,6 +55,15 @@ exports.interpretMode = function(test) {
   test.strictEqual(File.interpretMode('-w-rw--wx'), 179); // 179 == 0263
   test.strictEqual(File.interpretMode('r-x--xrwx'), 335); // 335 == 0517
 
+  // setuid and setgid flags
+  test.strictEqual(File.interpretMode('rws------'), 2496); // 2496 == 04700
+  test.strictEqual(File.interpretMode('rwS------'), 2432); // 2432 == 04600
+  test.strictEqual(File.interpretMode('rwxrws---'), 1528); // 1528 == 02770
+  test.strictEqual(File.interpretMode('rwxrwS---'), 1520); // 1520 == 02760
+  test.strictEqual(File.interpretMode('rwsrws---'), 3576); // 3576 == 06770
+  test.strictEqual(File.interpretMode('rwSrwS---'), 3504); // 3504 == 06660
+  test.strictEqual(File.interpretMode('rwsrwxrw-'), 2558); // 2558 == 04776
+
   // You can pass Octal numbers into interpretMode, which does a bit more validation
   // than simply parseInt()
   test.strictEqual(File.interpretMode(0777), 511);
