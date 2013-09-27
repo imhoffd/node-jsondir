@@ -7,7 +7,6 @@
 
 'use strict';
 
-var ASYNC = require('async');
 var FS = require('fs');
 
 var File = require('./File').File;
@@ -155,22 +154,9 @@ var json2dir = function(json, options, callback) {
     options = {};
   }
 
-  // Keeps track of the number of child keys in the object. When count
-  // returns to 0, we know the object has been exhausted.
-  var count = 1;
-
-  /**
-   * The handler for determining when everything is finished.
-   *
-   * @param  {Error} err
-   */
-  var done = function(err) {
-    if (err) return callback(err);
-
-    if (count === 0) {
-      return callback();
-    }
-  };
+  // Keeps track of the number of child keys in the object. When pending
+  // is 0, we know the object has been exhausted.
+  var pending = 1;
 
   /**
    * Recursive function which recurses through the object and asynchronously
@@ -180,55 +166,62 @@ var json2dir = function(json, options, callback) {
    * @param  {object} parentAttributes
    */
   var _json2dir = function(json, parentAttributes) {
+    if (pending === 0) return callback();
+
     if (typeof json === 'object') {
       // Validate and normalize the options into children and attributes.
       var normalizedOptions = normalizeOptions(json, parentAttributes),
           childKeys = Object.keys(normalizedOptions.children);
 
+      var afterCreate = function(err) {
+        if (err && (!(err instanceof File.FileExistsException) || !('ignoreExists' in options) || !options.ignoreExists)) throw err;
+
+        // When IO is finished for this file, we mark it as done.
+        if (--pending === 0) return callback();
+
+        // For each of the children parsed, call this function.
+        childKeys.forEach(function(name) {
+          // normalizeOptions() needs the key of the child object, which is the name.
+          normalizedOptions.children[name]['-name'] = name;
+
+          // If there are any inherited attributes of the parent, we need to add
+          // them to the child object.
+          if ('inherit' in normalizedOptions.attributes && normalizedOptions.attributes.inherit.length > 0) {
+            if (normalizedOptions.attributes.inherit.indexOf('inherit') === -1) {
+              normalizedOptions.attributes.inherit.push('inherit');
+            }
+
+            normalizedOptions.attributes.inherit.forEach(function(inheritedAttribute) {
+              normalizedOptions.children[name]['-' + inheritedAttribute] = normalizedOptions.attributes[inheritedAttribute];
+            });
+          }
+
+          // Recurse, given the unnormalized options of the child and normalized
+          // attributes of the parent.
+          _json2dir(normalizedOptions.children[name], normalizedOptions.attributes);
+        });
+      };
+
       // First count the number of children.
-      count += childKeys.length;
+      pending += childKeys.length;
 
       try {
         // Create the File object given the set of attributes parsed which
         // represents the file in question.
         var f = new File(normalizedOptions.attributes);
-        f.create(function(err) {
-          if (err && (!(err instanceof File.FileExistsException) || !('ignoreExists' in options) || !options.ignoreExists)) throw err;
 
-          // When IO is finished for this file, we mark it as done.
-          --count;
-
-          // For each of the children parsed, call this function in parallel.
-          ASYNC.each(childKeys, function(name, callback) {
-            // normalizeOptions() needs the key of the child object, which is the name.
-            normalizedOptions.children[name]['-name'] = name;
-
-            // If there are any inherited attributes of the parent, we need to add
-            // them to the child object.
-            if ('inherit' in normalizedOptions.attributes && normalizedOptions.attributes.inherit.length > 0) {
-              if (normalizedOptions.attributes.inherit.indexOf('inherit') === -1) {
-                normalizedOptions.attributes.inherit.push('inherit');
-              }
-
-              normalizedOptions.attributes.inherit.forEach(function(inheritedAttribute) {
-                normalizedOptions.children[name]['-' + inheritedAttribute] = normalizedOptions.attributes[inheritedAttribute];
-              });
-            }
-
-            // Recurse, given the unnormalized options of the child and normalized
-            // attributes of the parent.
-            _json2dir(normalizedOptions.children[name], normalizedOptions.attributes);
-
-            // Async has us call callback() to know when this function is done.
-            callback();
-          }, function(err) {
+        if (f.doesExist() && 'overwrite' in options && options.overwrite) {
+          f.remove(function(err) {
             if (err) throw err;
-            done();
+            f.create(afterCreate);
           });
-        });
+        }
+        else {
+          f.create(afterCreate);
+        }
       }
       catch (err) {
-        return done(err);
+        return callback(err);
       }
     }
   };
@@ -308,20 +301,22 @@ var dir2json = function(path, options, callback) {
     _dir2json(json, callback);
   }
   else {
-    callback(null, json);
+    return callback(null, json);
   }
 };
 
 // json2dir({
-//   "-path": "output",
-//   "-inherit": ['mode'],
-//   "-mode": 511,
+//   "-path": 'output',
+//   "-mode": 'rwxrwx---',
+//   "-inherit": 'mode',
 //   "a": {
-//     "a1": {
-//       "a11": {}
+//     "b": {
+//       "c": {}
 //     }
-//   },
-//   "b": {}
+//   }
+// }, {
+//   ignoreExists: true,
+//   // overwrite: true
 // }, function(err) {
 //   if (err) throw err;
 //   console.log(":D");

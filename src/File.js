@@ -277,6 +277,15 @@ File.prototype.getPath = function() {
 };
 
 /**
+ * Returns whether or not this file exists.
+ *
+ * @return {bool}
+ */
+File.prototype.doesExist = function() {
+  return this.exists;
+};
+
+/**
  * Returns the contents of the file.
  *
  * @return {string}
@@ -370,6 +379,20 @@ File.prototype.create = function(callback) {
   }
   else {
     op();
+  }
+};
+
+/**
+ * Removes the file.
+ *
+ * @param  {Function} callback
+ */
+File.prototype.remove = function(callback) {
+  if (this.type === File.Types.directory) {
+    FS.rmdir(this.path, callback);
+  }
+  else {
+    FS.unlink(this.path, callback);
   }
 };
 

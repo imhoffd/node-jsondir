@@ -177,6 +177,34 @@ exports.getDest = function(test) {
   test.done();
 };
 
+exports.doesExist = function(test) {
+  var f1 = new File({ type: '-', path: 'test/foo' });
+  var f2 = new File({ type: 'd', path: 'test/bar' });
+  var f3 = new File({ type: 'l', path: 'test/tobar', dest: 'bar' });
+
+  test.ok(!f1.doesExist());
+  test.ok(!f2.doesExist());
+  test.ok(!f3.doesExist());
+
+  FS.writeFileSync('test/foo', '');
+  FS.mkdirSync('test/bar');
+  FS.symlinkSync('bar', 'test/tobar');
+
+  f1 = new File({ path: 'test/foo' });
+  f2 = new File({ path: 'test/bar' });
+  f3 = new File({ path: 'test/tobar' });
+
+  test.ok(f1.doesExist());
+  test.ok(f2.doesExist());
+  test.ok(f3.doesExist());
+
+  FS.unlinkSync('test/foo');
+  FS.rmdirSync('test/bar');
+  FS.unlinkSync('test/tobar');
+
+  test.done();
+};
+
 exports.create = function(test) {
   var f1 = new File({
     type: '-',
@@ -241,3 +269,47 @@ exports.create = function(test) {
     test.done();
   });
 };
+
+exports.remove = function(test) {
+  test.expect(6);
+
+  FS.writeFileSync('test/foo', '');
+  FS.mkdirSync('test/bar');
+  FS.symlinkSync('bar', 'test/tobar');
+
+  var f1 = new File({ path: 'test/foo' });
+  var f2 = new File({ path: 'test/bar' });
+  var f3 = new File({ path: 'test/tobar' });
+
+  test.ok(FS.existsSync('test/foo'));
+  test.ok(FS.existsSync('test/bar'));
+  test.ok(FS.existsSync('test/tobar'));
+
+  ASYNC.parallel([
+    function(callback) {
+      f1.remove(function(err) {
+        if (err) return callback(err);
+        test.ok(!FS.existsSync('test/foo'));
+        callback();
+      });
+    },
+    function(callback) {
+      f2.remove(function(err) {
+        if (err) return callback(err);
+        test.ok(!FS.existsSync('test/bar'));
+        callback();
+      });
+    },
+    function(callback) {
+      f3.remove(function(err) {
+        if (err) return callback(err);
+        test.ok(!FS.existsSync('test/tobar'));
+        callback();
+      });
+    }
+  ], function(err) {
+    if (err) throw err;
+    test.done();
+  });
+};
+
