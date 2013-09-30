@@ -7,8 +7,9 @@
 'use strict';
 
 var PATH = require('path');
-var FS = require('fs');
+var FS = require('graceful-fs');
 var mkdirp = require('mkdirp');
+var rimraf = require('rimraf');
 var uidNumber = require('uid-number');
 
 var Exception = function(message) {
@@ -389,7 +390,7 @@ File.prototype.create = function(callback) {
  */
 File.prototype.remove = function(callback) {
   if (this.type === File.Types.directory) {
-    FS.rmdir(this.path, callback);
+    rimraf(this.path, callback);
   }
   else {
     FS.unlink(this.path, callback);

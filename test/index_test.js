@@ -9,7 +9,7 @@ var File = jsondir.File;
 // var uidNumber = require('uid-number');
 
 exports.json2dir = function(test) {
-  test.expect(41);
+  test.expect(43);
 
   ASYNC.series([
     function(callback) {
@@ -168,7 +168,7 @@ exports.json2dir = function(test) {
         test.ok(fbStats.isDirectory());
         test.ok(fblStats.isSymbolicLink());
         test.ok(fcStats.isFile());
-        test.ok(FS.readFileSync('test/output/c', { encoding: 'utf8' }) === 'something something something dark side');
+        test.strictEqual(FS.readFileSync('test/output/c', { encoding: 'utf8' }), 'something something something dark side');
         test.strictEqual(fcStats.mode & 0777, 0666);
         test.ok(fdStats.isDirectory());
         test.strictEqual(fdStats.mode & 0777, 0555);
@@ -208,7 +208,26 @@ exports.json2dir = function(test) {
         FS.rmdirSync('test/output');
         callback();
       });
-    }
+    },
+    function(callback) {
+      FS.mkdirSync('test/output');
+      FS.writeFileSync('test/output/a', 'something something something complete');
+
+      test.doesNotThrow(function() {
+        jsondir.json2dir({
+          "-path": 'test/output',
+          "a": {
+            "-content": "something something something dark side"
+          }
+        }, { overwrite: true }, function(err) {
+          test.strictEqual(FS.readFileSync('test/output/a', { encoding: 'utf8' }), 'something something something dark side');
+          FS.unlinkSync('test/output/a');
+          FS.rmdirSync('test/output');
+          callback();
+          if (err) throw err;
+        });
+      });
+    },
     // This test doesn't work because owner/group attribute setting requires
     // super user, and grunt/nodeunit do something weird with that.
     //

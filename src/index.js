@@ -7,7 +7,7 @@
 
 'use strict';
 
-var FS = require('fs');
+var FS = require('graceful-fs');
 
 var File = require('./File').File;
 
@@ -31,6 +31,23 @@ var inheritableAttributes = Object.freeze([
   'owner',
   'group'
 ]);
+
+/**
+ * Shallow merge for options.
+ *
+ * @param  {object} defaults Default options that are overridden.
+ * @param  {object} override Supplied options.
+ * @return {object}
+ */
+var mergeOptions = function(defaults, override) {
+  override = override || {};
+
+  for (var i in override) {
+    defaults[i] = override[i];
+  }
+
+  return defaults;
+};
 
 /**
  * Split up given object into children and valid attributes that are ready for
@@ -122,7 +139,7 @@ var createFileNode = function(file, options) {
   case File.Types.file:
     node['-type'] = '-';
 
-    if (!('content' in options) || options.content) {
+    if (options.content) {
       node['-content'] = file.getContent();
     }
 
@@ -154,6 +171,15 @@ var json2dir = function(json, options, callback) {
     options = {};
   }
 
+  options = mergeOptions({
+    ignoreExists: false,
+    overwrite: false
+  }, options);
+
+  if (options.overwrite) {
+    options.ignoreExists = true;
+  }
+
   // Keeps track of the number of child keys in the object. When pending
   // is 0, we know the object has been exhausted.
   var pending = 1;
@@ -174,9 +200,10 @@ var json2dir = function(json, options, callback) {
           childKeys = Object.keys(normalizedOptions.children);
 
       var afterCreate = function(err) {
-        if (err && (!(err instanceof File.FileExistsException) || !('ignoreExists' in options) || !options.ignoreExists)) throw err;
+        if (err && (!(err instanceof File.FileExistsException) || !options.ignoreExists)) throw err;
 
-        // When IO is finished for this file, we mark it as done.
+        // When IO is finished for this file, we mark it as done and check to
+        // see if there are no pending files.
         if (--pending === 0) return callback();
 
         // For each of the children parsed, call this function.
@@ -242,6 +269,10 @@ var dir2json = function(path, options, callback) {
     options = {};
   }
 
+  options = mergeOptions({
+    content: true
+  }, options);
+
   var file, json;
 
   /**
@@ -291,7 +322,7 @@ var dir2json = function(path, options, callback) {
   try {
     // Construction of new origin object.
     file = new File({ "path": path, "exists": true });
-    json = createFileNode(file);
+    json = createFileNode(file, options);
   }
   catch (err) {
     return callback(err);
@@ -304,28 +335,6 @@ var dir2json = function(path, options, callback) {
     return callback(null, json);
   }
 };
-
-// json2dir({
-//   "-path": 'output',
-//   "-mode": 'rwxrwx---',
-//   "-inherit": 'mode',
-//   "a": {
-//     "b": {
-//       "c": {}
-//     }
-//   }
-// }, {
-//   ignoreExists: true,
-//   // overwrite: true
-// }, function(err) {
-//   if (err) throw err;
-//   console.log(":D");
-// });
-
-// dir2json('test/output', function(err, results) {
-//   if (err) throw err;
-//   console.log(results);
-// });
 
 module.exports = {
   json2dir: json2dir,

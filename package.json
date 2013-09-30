@@ -5,7 +5,9 @@
   "main": "./src/index.js",
   "dependencies": {
     "uid-number": "0.0.3",
-    "mkdirp": "~0.3.5"
+    "mkdirp": "~0.3.5",
+    "rimraf": "~2.2.2",
+    "graceful-fs": "~2.0.1"
   },
   "devDependencies": {
     "grunt": "~0.4.1",
