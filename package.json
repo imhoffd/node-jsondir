@@ -1,6 +1,6 @@
 {
   "name": "jsondir",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Convert JSON to directories and back again.",
   "main": "./src/index.js",
   "dependencies": {
