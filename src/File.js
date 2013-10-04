@@ -9,7 +9,6 @@
 var PATH = require('path');
 var FS = require('graceful-fs');
 var mkdirp = require('mkdirp');
-var rimraf = require('rimraf');
 var uidNumber = require('uid-number');
 
 var Exception = function(message) {
@@ -333,6 +332,12 @@ File.prototype.create = function(callback) {
 
   var self = this;
 
+  var done = function(err) {
+    if (err) return callback(err);
+    self.exists = true;
+    callback();
+  };
+
   var op = function() {
     switch (self.type) {
     case File.Types.file:
@@ -340,10 +345,7 @@ File.prototype.create = function(callback) {
         if (err) return callback(err);
         self.chmod(function(err) {
           if (err) return callback(err);
-          self.chown(function(err) {
-            if (err) return callback(err);
-            callback();
-          });
+          self.chown(done);
         });
       });
 
@@ -353,19 +355,13 @@ File.prototype.create = function(callback) {
         if (err) return callback(err);
         self.chmod(function(err) {
           if (err) return callback(err);
-          self.chown(function(err) {
-            if (err) return callback(err);
-            callback();
-          });
+          self.chown(done);
         });
       });
 
       break;
     case File.Types.symlink:
-      FS.symlink(self.dest, self.path, function(err) {
-        if (err) return callback(err);
-        callback();
-      });
+      FS.symlink(self.dest, self.path, done);
 
       break;
     }
@@ -390,11 +386,19 @@ File.prototype.create = function(callback) {
  * @param  {Function} callback
  */
 File.prototype.remove = function(callback) {
+  var self = this;
+
+  var done = function(err) {
+    if (err) return callback(err);
+    self.exists = false;
+    callback();
+  };
+
   if (this.type === File.Types.directory) {
-    rimraf(this.path, callback);
+    FS.rmdir(this.path, done);
   }
   else {
-    FS.unlink(this.path, callback);
+    FS.unlink(this.path, done);
   }
 };
 
@@ -434,3 +438,4 @@ File.prototype.chown = function(callback) {
 };
 
 module.exports.File = File;
+

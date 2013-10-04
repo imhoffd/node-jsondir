@@ -7,8 +7,10 @@
 
 'use strict';
 
+var PATH = require('path');
 var FS = require('graceful-fs');
 var xtend = require('xtend');
+var rimraf = require('rimraf');
 
 var File = require('./File').File;
 
@@ -171,10 +173,11 @@ var json2dir = function(json, options, callback) {
 
   options = xtend({
     ignoreExists: false,
-    overwrite: false
+    overwrite: false,
+    nuke: false
   }, options);
 
-  if (options.overwrite) {
+  if (options.overwrite || options.nuke) {
     options.ignoreExists = true;
   }
 
@@ -268,11 +271,18 @@ var json2dir = function(json, options, callback) {
         // represents the file in question.
         var f = new File(normalizedOptions.attributes);
 
-        if (f.doesExist() && 'overwrite' in options && options.overwrite) {
-          f.remove(function(err) {
-            if (err) throw err;
-            f.create(afterCreate);
-          });
+        if (f.doesExist()) {
+          if (options.overwrite && f.getType() !== File.Types.directory) {
+            f.remove(function(err) {
+              if (err) return callback(err);
+              // Need to refresh object after its removal.
+              f = new File(normalizedOptions.attributes);
+              f.create(afterCreate);
+            });
+          }
+          else {
+            afterCreate();
+          }
         }
         else {
           f.create(afterCreate);
@@ -284,7 +294,25 @@ var json2dir = function(json, options, callback) {
     }
   };
 
-  _json2dir(json);
+  // Scary stuff.
+  if (options.nuke) {
+    if (!('-path' in json)) {
+      return callback(new Error("'-path' attribute required for 'nuke' option."));
+    }
+
+    if (PATH.resolve(json['-path']) === process.env.PWD) {
+      return callback(new Error("'-path' must differ from current working directory."));
+    }
+    else {
+      rimraf(PATH.resolve(json['-path']), function(err) {
+        if (err) return callback(err);
+        _json2dir(json);
+      });
+    }
+  }
+  else {
+    _json2dir(json);
+  }
 };
 
 /**

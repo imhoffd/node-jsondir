@@ -10,7 +10,7 @@ var File = jsondir.File;
 // var uidNumber = require('uid-number');
 
 exports.json2dir = function(test) {
-  test.expect(43);
+  test.expect(42);
 
   ASYNC.series([
     function(callback) {
