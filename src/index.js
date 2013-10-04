@@ -21,11 +21,13 @@ var knownAttributes = Object.freeze([
   '-group',
   '-dest',
   '-content',
-  '-inherit'
+  '-inherit',
+  '-dynamic'
 ]);
 
 var inheritableAttributes = Object.freeze([
   'inherit',
+  'dynamic',
   'mode',
   'umask',
   'owner',
@@ -59,7 +61,9 @@ var mergeOptions = function(defaults, override) {
  */
 var normalizeOptions = function(options, parentAttributes) {
   var opts = {
-    attributes: {},
+    attributes: {
+      dynamic: {}
+    },
     children: {}
   };
 
@@ -69,11 +73,17 @@ var normalizeOptions = function(options, parentAttributes) {
       // because having files prepended with a hyphen in Unix is a terrible
       // idea: http://www.dwheeler.com/essays/fixing-unix-linux-filenames.html#dashes
       if (i.indexOf('-') === 0) {
+        var a = i.substring(1);
+
         if (knownAttributes.indexOf(i) === -1) {
-          throw new Error("Unknown attribute '" + i + "' in object.");
+          throw new Error("Unknown attribute '" + a + "' in object.");
         }
 
-        opts.attributes[i.substring(1)] = options[i];
+        if (typeof options[i] === 'function') {
+          opts.attributes.dynamic[a] = options[i];
+        }
+
+        opts.attributes[a] = options[i];
       }
       else {
         opts.children[i] = options[i];
@@ -92,6 +102,10 @@ var normalizeOptions = function(options, parentAttributes) {
       opts.attributes.inherit.forEach(function(inheritedAttribute) {
         if (inheritableAttributes.indexOf(inheritedAttribute) === -1) {
           throw new Error("Unknown inheritable attribute '" + inheritedAttribute + "' in object.");
+        }
+
+        if (typeof opts.attributes[inheritedAttribute] === 'function' && opts.attributes.inherit.indexOf('dynamic') === -1) {
+          opts.attributes.inherit.push('dynamic');
         }
       });
     }
@@ -166,8 +180,8 @@ var createFileNode = function(file, options) {
  * @param  {Function} callback
  */
 var json2dir = function(json, options, callback) {
-  if (typeof options === 'function') {
-    callback = options;
+  if (typeof callback !== 'function') {
+    callback = typeof options === 'function' ? options : function() {};
     options = {};
   }
 
@@ -209,7 +223,9 @@ var json2dir = function(json, options, callback) {
         // For each of the children parsed, call this function.
         childKeys.forEach(function(name) {
           // normalizeOptions() needs the key of the child object, which is the name.
-          normalizedOptions.children[name]['-name'] = name;
+          if (!('-name' in normalizedOptions.children[name])) {
+            normalizedOptions.children[name]['-name'] = name;
+          }
 
           // If there are any inherited attributes of the parent, we need to add
           // them to the child object.
@@ -233,6 +249,12 @@ var json2dir = function(json, options, callback) {
       pending += childKeys.length;
 
       try {
+        for (var i in normalizedOptions.attributes) {
+          if (i in normalizedOptions.attributes.dynamic) {
+            normalizedOptions.attributes[i] = normalizedOptions.attributes.dynamic[i](normalizedOptions.attributes);
+          }
+        }
+
         // Create the File object given the set of attributes parsed which
         // represents the file in question.
         var f = new File(normalizedOptions.attributes);
@@ -264,8 +286,8 @@ var json2dir = function(json, options, callback) {
  * @param  {Function} callback
  */
 var dir2json = function(path, options, callback) {
-  if (typeof options === 'function') {
-    callback = options;
+  if (typeof callback !== 'function') {
+    callback = typeof options === 'function' ? options : function() {};
     options = {};
   }
 

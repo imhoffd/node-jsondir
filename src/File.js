@@ -26,7 +26,8 @@ Exception.prototype = Object.create(Error.prototype);
  */
 var File = function(options) {
   options = options || {};
-  this.path = PATH.normalize(options.path);
+
+  this.path = PATH.resolve(PATH.normalize(options.path));
   this.exists = FS.existsSync(this.path);
   this.umask = 'umask' in options ? options.umask : File.UMASK;
 
@@ -108,7 +109,7 @@ File.IncorrectFileTypeException = function(message) {
 File.IncorrectFileTypeException.prototype = Object.create(Exception.prototype);
 
 File.UMASK = process.umask();
-File.DIRECTORY_SEPARATOR = PATH.normalize('/');
+File.DIRECTORY_SEPARATOR = PATH.sep;
 
 File.Types = Object.freeze({
   'file': 0,
@@ -418,8 +419,8 @@ File.prototype.chmod = function(callback) {
 File.prototype.chown = function(callback) {
   var self = this;
 
-  if ('owner' in self || 'group' in self) {
-    uidNumber(this.owner, this.group, function(err, uid, gid) {
+  if ('owner' in this || 'group' in this) {
+    uidNumber('owner' in this ? this.owner : process.getuid(), 'group' in this ? this.group : process.getgid(), function(err, uid, gid) {
       if (err) callback(err);
       FS.chown(self.path, uid, gid, function(err) {
         if (err) callback(err);
