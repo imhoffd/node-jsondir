@@ -3,6 +3,7 @@
  */
 
 var jsondir = require('../src/index');
+var PATH = require('path');
 var FS = require('fs');
 var ASYNC = require('async');
 var File = jsondir.File;
@@ -290,7 +291,7 @@ exports.dir2json = function(test) {
       jsondir.dir2json('test/output', function(err, results) {
         if (err) return callback(err);
         test.deepEqual(results, {
-          "-path": 'test/output',
+          "-path": PATH.resolve('test/output'),
           "-type": '-',
           "-content": ''
         });
@@ -303,7 +304,7 @@ exports.dir2json = function(test) {
       jsondir.dir2json('test/output', function(err, results) {
         if (err) return callback(err);
         test.deepEqual(results, {
-          "-path": 'test/output',
+          "-path": PATH.resolve('test/output'),
           "-type": 'd'
         });
         FS.rmdirSync('test/output');
@@ -316,7 +317,7 @@ exports.dir2json = function(test) {
       jsondir.dir2json('test/to_output', function(err, results) {
         if (err) return callback(err);
         test.deepEqual(results, {
-          "-path": 'test/to_output',
+          "-path": PATH.resolve('test/to_output'),
           "-type": 'l',
           "-dest": 'output'
         });
@@ -332,15 +333,15 @@ exports.dir2json = function(test) {
       jsondir.dir2json('test/output', function(err, results) {
         if (err) return callback(err);
         test.deepEqual(results, {
-          "-path": 'test/output',
+          "-path": PATH.resolve('test/output'),
           "-type": 'd',
           "a": {
-            "-path": 'test/output/a',
+            "-path": PATH.resolve('test/output/a'),
             "-type": '-',
             "-content": 'something something something dark side'
           },
           "b": {
-            "-path": 'test/output/b',
+            "-path": PATH.resolve('test/output/b'),
             "-type": '-',
             "-content": 'something something something complete'
           }
@@ -360,22 +361,22 @@ exports.dir2json = function(test) {
       jsondir.dir2json('test/output', { content: false }, function(err, results) {
         if (err) return callback(err);
         test.deepEqual(results, {
-          "-path": 'test/output',
+          "-path": PATH.resolve('test/output'),
           "-type": 'd',
           "a": {
-            "-path": 'test/output/a',
+            "-path": PATH.resolve('test/output/a'),
             "-type": 'd',
             "a1": {
-              "-path": 'test/output/a/a1',
+              "-path": PATH.resolve('test/output/a/a1'),
               "-type": 'd',
               "a11": {
-                "-path": 'test/output/a/a1/a11',
+                "-path": PATH.resolve('test/output/a/a1/a11'),
                 "-type": '-'
               }
             }
           },
           "b": {
-            "-path": 'test/output/b',
+            "-path": PATH.resolve('test/output/b'),
             "-type": '-'
           }
         });

@@ -3,6 +3,7 @@
  */
 
 var File = require('../src/File').File;
+var PATH = require('path');
 var FS = require('fs');
 var ASYNC = require('async');
 //var uidNumber = require('uid-number');
@@ -133,8 +134,8 @@ exports.getPath = function(test) {
   var f1 = new File({ path: 'test/foo' });
   var f2 = new File({ path: 'test/bar', type: '-' });
 
-  test.strictEqual(f1.getPath(), 'test/foo');
-  test.strictEqual(f2.getPath(), 'test/bar');
+  test.strictEqual(f1.getPath(), PATH.resolve('test/foo'));
+  test.strictEqual(f2.getPath(), PATH.resolve('test/bar'));
 
   FS.unlinkSync('test/foo');
 

@@ -8,6 +8,7 @@
 'use strict';
 
 var FS = require('graceful-fs');
+var xtend = require('xtend');
 
 var File = require('./File').File;
 
@@ -33,23 +34,6 @@ var inheritableAttributes = Object.freeze([
   'owner',
   'group'
 ]);
-
-/**
- * Shallow merge for options.
- *
- * @param  {object} defaults Default options that are overridden.
- * @param  {object} override Supplied options.
- * @return {object}
- */
-var mergeOptions = function(defaults, override) {
-  override = override || {};
-
-  for (var i in override) {
-    defaults[i] = override[i];
-  }
-
-  return defaults;
-};
 
 /**
  * Split up given object into children and valid attributes that are ready for
@@ -185,7 +169,7 @@ var json2dir = function(json, options, callback) {
     options = {};
   }
 
-  options = mergeOptions({
+  options = xtend({
     ignoreExists: false,
     overwrite: false
   }, options);
@@ -234,8 +218,18 @@ var json2dir = function(json, options, callback) {
               normalizedOptions.attributes.inherit.push('inherit');
             }
 
-            normalizedOptions.attributes.inherit.forEach(function(inheritedAttribute) {
-              normalizedOptions.children[name]['-' + inheritedAttribute] = normalizedOptions.attributes[inheritedAttribute];
+            normalizedOptions.attributes.inherit.forEach(function(inheritedAttribute, i) {
+              // Allow child to override inherited attribute.
+              if ('-' + inheritedAttribute in normalizedOptions.children[name]) {
+                if (inheritedAttribute in normalizedOptions.attributes.dynamic) {
+                  delete normalizedOptions.attributes.dynamic[inheritedAttribute];
+                }
+
+                normalizedOptions.attributes.inherit.splice(i, 1);
+              }
+              else {
+                normalizedOptions.children[name]['-' + inheritedAttribute] = normalizedOptions.attributes[inheritedAttribute];
+              }
             });
           }
 
@@ -291,7 +285,7 @@ var dir2json = function(path, options, callback) {
     options = {};
   }
 
-  options = mergeOptions({
+  options = xtend({
     content: true
   }, options);
 
