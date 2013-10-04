@@ -218,18 +218,33 @@ var json2dir = function(json, options, callback) {
               normalizedOptions.attributes.inherit.push('inherit');
             }
 
-            normalizedOptions.attributes.inherit.forEach(function(inheritedAttribute, i) {
+            var removeLater = [];
+
+            normalizedOptions.attributes.inherit.forEach(function(inheritedAttribute) {
               // Allow child to override inherited attribute.
               if ('-' + inheritedAttribute in normalizedOptions.children[name]) {
+                // Remember to take these attributes out.
                 if (inheritedAttribute in normalizedOptions.attributes.dynamic) {
-                  delete normalizedOptions.attributes.dynamic[inheritedAttribute];
+                  removeLater.push(inheritedAttribute);
                 }
-
-                normalizedOptions.attributes.inherit.splice(i, 1);
               }
               else {
-                normalizedOptions.children[name]['-' + inheritedAttribute] = normalizedOptions.attributes[inheritedAttribute];
+                // I should really use Underscore.
+                if (Array.isArray(normalizedOptions.attributes[inheritedAttribute])) {
+                  normalizedOptions.children[name]['-' + inheritedAttribute] = normalizedOptions.attributes[inheritedAttribute].slice();
+                }
+                else if (typeof normalizedOptions.attributes[inheritedAttribute] === 'object') {
+                  normalizedOptions.children[name]['-' + inheritedAttribute] = xtend(normalizedOptions.attributes[inheritedAttribute]);
+                }
+                else {
+                  normalizedOptions.children[name]['-' + inheritedAttribute] = normalizedOptions.attributes[inheritedAttribute];
+                }
               }
+            });
+
+            removeLater.forEach(function(attribute) {
+              delete normalizedOptions.children[name]['-dynamic'][attribute];
+              normalizedOptions.children[name]['-inherit'].splice(normalizedOptions.children[name]['-inherit'].indexOf(attribute), 1);
             });
           }
 
