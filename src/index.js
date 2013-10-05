@@ -76,7 +76,7 @@ var normalizeOptions = function(options, parentAttributes) {
       }
     }
 
-    if ('owner' in opts.attributes && opts.attributes.owner !== process.env.USER && opts.attributes.owner !== 'root') {
+    if ('owner' in opts.attributes && opts.attributes.owner !== process.env.USER && process.env.USER !== 'root') {
       throw new Error("Must be run as root if owner differs from you.");
     }
 
