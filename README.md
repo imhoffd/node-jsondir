@@ -7,46 +7,93 @@ A Node package to convert JSON objects to directories and back again. Directory 
 
 Doing large asynchronous file operations in Node is simply a pain in the ass. Callbacks nest and nest and nest until suddenly you're ten or twenty levels of indentation deep and you have no idea what the hell is going on. JSONdir helps alleviate your I/O stress by giving you simple and familiar tools to do large amounts of work efficiently.
 
-### Simple example
+### Simple examples
 
-    var jsondir = require('jsondir');
-    
-    jsondir.json2dir({
-        "-path": 'path/to/directory',
-        "myfile": {
-            "-content": 'Hello world!'
-        },
-        "mydir": {
-            "a": {
-                "b": {
-                    "c": {
-                        "-type": 'd'
-                    }
-                }
-            },
-            "1": {
-                "2": {
-                    "3": {}
+#### json2dir (Turn a JSON object into a directory structure.)
+
+```javascript
+var jsondir = require('jsondir');
+
+jsondir.json2dir({
+    "-path": 'path/to/directory',
+    "myfile": {
+        "-content": 'Hello world!'
+    },
+    "mydir": {
+        "a": {
+            "b": {
+                "c": {
+                    "-type": 'd'
                 }
             }
+        },
+        "1": {
+            "2": {
+                "3": {}
+            }
         }
-    }, function(err) {
-        if (err) throw err;
-    });
+    }
+}, function(err) {
+    if (err) throw err;
+});
+```
 
 By running the code above, you get the following directory structure in your current working directory:
 
-    path/
-    +-- to/
-        +-- directory/
-            |-- myfile
-            +-- mydir/
-                |-- a/
-                |   +-- b/
-                |       +-- c/
-                +-- 1/
-                    +-- 2/
-                        +-- 3
+```
+path/
++-- to/
+    +-- directory/
+        |-- myfile
+        +-- mydir/
+            |-- a/
+            |   +-- b/
+            |       +-- c/
+            +-- 1/
+                +-- 2/
+                    +-- 3
+```
+
+####dir2json (Turn a directory structure into a JSON object.)
+
+```javascript
+var jsondir = require('jsondir');
+
+jsondir.dir2json('path/to/directory', function(err, results) {
+    if (err) throw err;
+    console.log(results);
+});
+```
+
+After running the json2dir example to create that file structure, the following is the output of running the code above:
+
+```
+{ '-path': '/home/you/path/to/directory',
+  '-type': 'd',
+  mydir:
+   { '1':
+      { '2': [Object],
+        '-path': '/home/you/path/to/directory/mydir/1',
+        '-type': 'd' },
+     '-path': '/home/you/path/to/directory/mydir',
+     '-type': 'd',
+     a:
+      { '-path': '/home/you/path/to/directory/mydir/a',
+        '-type': 'd',
+        b: [Object] } },
+  myfile:
+   { '-path': '/home/you/path/to/directory/myfile',
+     '-type': '-' } }
+```
+
+You can get additional attributes by adding elements to the `attributes` array in the dir2json options. The following example includes the `-content` (for files) and `-mode` attributes, as well as `-path` and `-type` (which are always included):
+
+```javascript
+jsondir.dir2json('path/to/directory', { attributes: ['content', 'mode'] }, function(err, results) {
+    if (err) throw err;
+    console.dir(results);
+});
+```
 
 ### Installation
 
@@ -73,4 +120,4 @@ Each node can have a variety of attributes:
 * `-group`: Use for specifying the group of the node, such as `www-data`. You may also use GIDs, like `33`.
 * `-name`: In case you need to determine the filename at runtime, if this attribute is specified, it will be used for the filename instead of the node's key.
 * `-dest`: Specify the path of the symlink destination. If this attribute is specified, `-type` is assumed to be `l`.
-* `-content`: Specify the contents of the file. If this attribute is specified, `-content` is assumed to be `f`.
+* `-content`: Specify the contents of the file. If this attribute is specified, `-type` is assumed to be `f`.
