@@ -321,6 +321,33 @@ File.prototype.getDest = function() {
 };
 
 /**
+ * Returns the file mode of the File.
+ *
+ * @return {number}
+ */
+File.prototype.getMode = function() {
+  return this.mode;
+};
+
+/**
+ * Returns the owner ID of the File.
+ *
+ * @return {number}
+ */
+File.prototype.getUid = function() {
+  return this.uid;
+};
+
+/**
+ * Returns the group ID of the File.
+ *
+ * @return {number}
+ */
+File.prototype.getGid = function() {
+  return this.gid;
+};
+
+/**
  * Creates this File on the filesystem using given information.
  *
  * @param  {Function} callback

@@ -139,7 +139,7 @@ var createFileNode = function(file, options) {
   case File.Types.file:
     node['-type'] = '-';
 
-    if (options.content) {
+    if ('attributes' in options && options.attributes.indexOf('content') !== -1) {
       node['-content'] = file.getContent();
     }
 
@@ -153,6 +153,20 @@ var createFileNode = function(file, options) {
     node['-dest'] = file.getDest();
 
     break;
+  }
+
+  if ('attributes' in options) {
+    if (options.attributes.indexOf('mode') !== -1) {
+      node['-mode'] = file.getMode();
+    }
+
+    if (options.attributes.indexOf('owner') !== -1) {
+      node['-owner'] = file.getUid();
+    }
+
+    if (options.attributes.indexOf('group') !== -1) {
+      node['-group'] = file.getGid();
+    }
   }
 
   return node;
@@ -329,7 +343,7 @@ var dir2json = function(path, options, callback) {
   }
 
   options = xtend({
-    content: true
+    attributes: []
   }, options);
 
   var file, json;
